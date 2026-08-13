@@ -14,5 +14,12 @@ int main()
     mNew.printm();
     mNew = m;
     mNew.printm();
+    for (size_t i=0; i<100; ++i)
+    	for (size_t j=0; j<100; ++j)
+            copym[i][j] = (i+1)*(j+1);
+    NMatrix nm = copym;
+    NMatrix nmslice = nm[Slice(99,-101,-50),Slice(99,-101,-50)];
+    nm.printm();
+    nmslice.printm();
     return 0;
 }

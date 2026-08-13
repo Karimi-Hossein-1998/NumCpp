@@ -1,10 +1,37 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
+#include <utility>
 #include <vector>
 #include <iostream>
 #include <algorithm>
 #include <initializer_list>
+#include <limits>
+
+template <typename T>
+struct Ranges
+{
+    T start=0;
+    T stop=0;
+    T step=1;
+    size_t size=0;
+    Ranges() = default;
+    Ranges(const Ranges&) = default;
+    Ranges(Ranges&&) noexcept = default;
+    explicit Ranges(T start_, T stop_, T step_) : start(start_), stop(stop_), step(step_)
+    {
+        if (step==0 || (step>0 && stop<=start) || (step<0 && stop>=start)) size = 0;
+        double diff = static_cast<double>(stop-start); double dStep = static_cast<double>(step); double divided = diff/dStep;
+        size_t newSize = static_cast<size_t>(divided); double eps=std::max(1e-14,divided*std::numeric_limits<double>::epsilon()*10.0);
+        size = (divided-static_cast<double>(newSize))>eps?newSize+1:newSize;
+    }
+    std::vector<T> range() {std::vector<T> v={}; for (size_t i=0; i<size; ++i) v.push_back(start+i*step); return v;};
+    [[nodiscard]] inline T operator[](size_t index) const noexcept {return start+index*step;}
+    Ranges<T>& operator=(const Ranges&) = default;
+    Ranges<T>& operator=(Ranges&&) noexcept = default;
+};
+
+using Slice = Ranges<std::ptrdiff_t>;
 
 template <typename T=double>
 struct Vec
@@ -52,7 +79,7 @@ struct Vec
     inline void extend(const Vec<T>& v) {data.insert(data.end(),v.data.begin(),v.data.end());}
     inline void extend(Vec<T>&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
     template<typename otherVec> requires requires(otherVec v){v.data;}
-    inline void extend(const otherVec<T>& v) {data.insert(data.end(),v.data.begin(),v.data.end());}
+    inline void extend(const otherVec& v) {data.insert(data.end(),v.data.begin(),v.data.end());}
     inline void extend(std::initializer_list<T> list) {data.insert(data.end(),list.begin(),list.end());}
     inline void extend(size_t n, T value) {data.insert(data.end(),n,value);}
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
@@ -246,8 +273,11 @@ struct Matrix
     template<typename MatProxy> requires requires(MatProxy m){m.data; m.nRows; m.nCols;}
     inline void extend_cols(const MatProxy& mat)
     {
-        for (size_t i=0; i<mat.nRows; ++i) extend_cols(m[i]);
+        for (size_t i=0; i<mat.nRows; ++i) extend_cols(mat[i]);
     }
+
+    // operator+
+    inline Matrix<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
 };
 
 /******************************
@@ -337,6 +367,8 @@ struct NMatrix
     NMatrix() = default;
     NMatrix(const NMatrix&) = default;
     NMatrix(NMatrix&&) noexcept = default;
+    template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+    NMatrix(const otherMatrix& m) : data(m.data), nRows(m.nRows), nCols(m.nCols) {}
     explicit NMatrix(size_t nrows, size_t ncols, T initVal = T{}) : nRows(nrows), nCols(ncols), data(nrows*ncols,initVal) {}
     NMatrix (std::initializer_list<T> list) : nRows(1), nCols(list.size()), data(list) {}
     NMatrix (std::initializer_list<std::initializer_list<T>> lists)
@@ -513,6 +545,19 @@ struct NMatrix
             (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " }\n";
         }
     }
+    // SLICE
+    inline NMatrix<T> operator[](Slice rs, Slice cs) const noexcept
+    {
+        NMatrix<T> result={};result.resize(rs.size,cs.size);
+        for (size_t i=0; i<rs.size; ++i)
+        {
+            for (size_t j=0; j<cs.size; ++j)
+            {
+                result[i][j] = (*this)[rs[i],cs[j]];
+            }
+        }
+        return result;
+    }
     // EXTEND
     inline void extend_cols(const T& value) {data.insert(data.end(),nCols,value);nRows+=1;}
     inline void extend_cols(const std::vector<T>& v)
@@ -548,6 +593,9 @@ struct NMatrix
     template<typename MatProxy> requires requires(MatProxy m){m.data; m.nRows; m.nCols;}
     inline void extend_cols(const MatProxy& mat)
     {
-        for (size_t i=0; i<mat.nRows; ++i) extend_cols(m[i]);
+        for (size_t i=0; i<mat.nRows; ++i) extend_cols(mat[i]);
     }
+
+    // operator+
+    inline NMatrix<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
 };
