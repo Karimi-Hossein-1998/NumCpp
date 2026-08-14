@@ -1,6 +1,9 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
+#include <iterator>
+#include <type_traits>
+#include <concepts>
 #include <utility>
 #include <vector>
 #include <iostream>
@@ -21,9 +24,12 @@ struct Ranges
     explicit Ranges(T start_, T stop_, T step_) : start(start_), stop(stop_), step(step_)
     {
         if (step==0 || (step>0 && stop<=start) || (step<0 && stop>=start)) size = 0;
-        double diff = static_cast<double>(stop-start); double dStep = static_cast<double>(step); double divided = diff/dStep;
-        size_t newSize = static_cast<size_t>(divided); double eps=std::max(1e-14,divided*std::numeric_limits<double>::epsilon()*10.0);
-        size = (divided-static_cast<double>(newSize))>eps?newSize+1:newSize;
+        else
+        {
+            double diff = static_cast<double>(stop-start); double dStep = static_cast<double>(step); double divided = diff/dStep;
+            size_t newSize = static_cast<size_t>(divided); double eps=std::max(1e-14,divided*std::numeric_limits<double>::epsilon()*10.0);
+            size = (divided-static_cast<double>(newSize))>eps?newSize+1:newSize;
+        }
     }
     std::vector<T> range() {std::vector<T> v={}; for (size_t i=0; i<size; ++i) v.push_back(start+i*step); return v;};
     [[nodiscard]] inline T operator[](size_t index) const noexcept {return start+index*step;}
@@ -40,8 +46,15 @@ struct Vec
 	Vec() = default;
     Vec(const Vec&) = default;
     Vec(Vec&&) noexcept = default;
+    template <typename otherVec> requires requires(otherVec v){v.data;} && (!std::same_as<std::decay_t<otherVec>, Vec<T>>)
+    Vec(const otherVec& v) : data(v.data.begin(),v.data.end()) {}
+    template <typename otherVec> requires requires(otherVec v){v.data;}
+    && (!std::same_as<std::decay_t<otherVec>, Vec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+    Vec(otherVec&& v) {data.assign(std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
+    template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
+    Vec(const RowProxy& r) : data(r.rowPtr,r.rowPtr+r.nCols) {}
     explicit Vec (size_t n, T initVal = T{}) : data(n,initVal) {}
-	Vec (std::initializer_list<T> list) : data(list) {}
+	Vec(std::initializer_list<T> list) : data(list) {}
     [[nodiscard]] size_t size() const noexcept {return data.size();}
     [[nodiscard]] bool empty() const noexcept {return data.empty();}
     [[nodiscard]] T* ptr() noexcept {return data.data();}
@@ -56,9 +69,13 @@ struct Vec
     inline Vec<T>& operator=(Vec<T>&&) noexcept = default;
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
 	inline Vec<T>& operator=(const RowProxy& row) {data.assign(row.rowPtr,row.rowPtr+row.nCols);return *this;}
-    inline Vec<T>& operator=(const std::vector<T>& v) {data.assign(v.begin(),v.end());return *this;}
-    template<typename otherVec> requires requires(otherVec v){v.data;}
+	inline Vec<T>& operator=(const std::vector<T>& v) {data.assign(v.begin(),v.end());return *this;}
+    template<typename otherVec> requires requires(otherVec v){v.data;} && (!std::same_as<std::decay_t<otherVec>, Vec>)
     inline Vec<T>& operator=(const otherVec& v) {data.assign(v.data.begin(),v.data.end());return *this;}
+    template<typename otherVec> requires requires(otherVec v){v.data;} && (!std::same_as<std::decay_t<otherVec>, Vec>)
+    && (!std::same_as<std::decay_t<otherVec>, Vec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+    inline Vec<T>& operator=(otherVec&& v)
+    {data.assign(std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));return *this;}
     inline Vec<T>& operator=(std::initializer_list<T> list) {data.assign(list.begin(),list.end()); return *this;}
     inline Vec<T>& operator=(T value) {std::fill(data.begin(),data.end(),value); return *this;}
 
@@ -67,7 +84,7 @@ struct Vec
     {
         if (data.empty()) {std::cout << "{}\n"; return;}
         std::cout << "{ ";
-        for (size_t i=0; i<data.size()-1; ++i) std::cout << data[i] << "\n  ";
+        for (size_t i=0; i<data.size()-1; ++i) std::cout << data[i] << ", ";
         std::cout << data[data.size()-1] << " }\n";
     }
 
@@ -80,13 +97,23 @@ struct Vec
     inline void extend(Vec<T>&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
     template<typename otherVec> requires requires(otherVec v){v.data;}
     inline void extend(const otherVec& v) {data.insert(data.end(),v.data.begin(),v.data.end());}
+    template<typename otherVec> requires requires(otherVec v){v.data;} && (!std::same_as<std::decay_t<otherVec>, Vec>)
+    && (!std::same_as<std::decay_t<otherVec>, Vec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+    inline void extend(otherVec&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
     inline void extend(std::initializer_list<T> list) {data.insert(data.end(),list.begin(),list.end());}
     inline void extend(size_t n, T value) {data.insert(data.end(),n,value);}
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
     inline void extend(const RowProxy& row) {data.insert(data.end(),row.rowPtr,row.rowPtr+row.nCols);}
-
-    // operator+
-    inline Vec<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
+    // operator + - * / += -= *= /= dot
+    inline Vec<T>& operator+=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]+value; return *this;}
+    inline Vec<T>& operator-=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]-value; return *this;}
+    inline Vec<T>& operator*=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]*value; return *this;}
+    inline Vec<T>& operator/=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]/value; return *this;}
+    inline Vec<T> operator+(T value) const {Vec v=*this; return v+=value;}
+    inline Vec<T> operator-(T value) const {Vec v=*this; return v-=value;}
+    inline Vec<T> operator*(T value) const {Vec v=*this; return v*=value;}
+    inline Vec<T> operator/(T value) const {Vec v=*this; return v/=value;}
+    inline T dot(const Vec<T>& v) const {size_t size=std::min(v.size(),data.size()); T result = T{}; for (size_t i=0; i<size; ++i) result+= (v[i]*data[i]); return result;}
 };
 
 template <typename T = double>
@@ -98,6 +125,12 @@ struct Matrix
     Matrix() = default;
     Matrix(const Matrix&) = default;
     Matrix(Matrix&&) noexcept = default;
+    template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+    Matrix(const otherMatrix& m) : data(m.data.begin(),m.data.end()), nRows(m.nRows), nCols(m.nCols) {}
+    template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+    && (!std::same_as<std::decay_t<otherMatrix>, Matrix<T>>) && (!std::is_lvalue_reference_v<otherMatrix>)
+    Matrix(otherMatrix&& m) : nRows(m.nRows), nCols(m.nCols)
+    {data.assign(std::make_move_iterator(m.data.begin()),std::make_move_iterator(m.data.end()));}
     explicit Matrix(size_t nrows, size_t ncols, T initVal = T{}) : nRows(nrows), nCols(ncols), data(nrows*ncols,initVal) {}
     Matrix (std::initializer_list<T> list) : nRows(1), nCols(list.size()), data(list) {}
     Matrix (std::initializer_list<std::initializer_list<T>> lists)
@@ -165,6 +198,7 @@ struct Matrix
         size_t nCols;
         inline const T& operator[](size_t col) const noexcept {assert(col<nCols && "Matrix Column out of bounds"); return rowPtr[col];};
     };
+
     inline RowSubMatrix operator[](size_t row) noexcept {assert(row<nRows && "Matrix row out of bounds");return RowSubMatrix{&data[row*nCols],nCols};}
     inline ConstRowSubMatrix operator[](size_t row) const noexcept
     {
@@ -189,6 +223,10 @@ struct Matrix
     inline Matrix<T>& operator=(Matrix<T>&&) noexcept = default;
     template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
     inline Matrix<T>& operator=(const otherMatrix& m) {nRows=m.nRows; nCols=m.nCols; data.assign(m.data.begin(),m.data.end());return *this;}
+    template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+    && (!std::same_as<std::decay_t<otherMatrix>, Matrix<T>>) && (!std::is_lvalue_reference_v<otherMatrix>)
+    inline Matrix<T>& operator=(otherMatrix&& m)
+    {nRows=m.nRows;nCols=m.nCols;data.assign(std::make_move_iterator(m.data.begin()),std::make_move_iterator(m.data.end()));return *this;}
     inline Matrix<T>& operator=(T value) {std::fill(data.begin(),data.end(),value); return *this;}
     inline Matrix<T>& operator=(const std::vector<std::vector<T>>& vm)
     {
@@ -230,54 +268,60 @@ struct Matrix
         std::cout << "{ ";
     	for (size_t r=0; r<nRows; ++r)
         {
-            r==0?std::cout << "{ " << data[r*nCols] << '\t':std::cout << "  { " << data[r*nCols] << '\t';
-            for (size_t c=1; c<nCols-1; ++c)
+            r==0?std::cout << "{ ":std::cout << "  { ";
+            for (size_t c=0; c<nCols-1; ++c)
             {
-                std::cout << data[r*nCols+c] << '\t';
+                std::cout << data[r*nCols+c] << ", ";
             }
-            (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " }\n";
+            (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " },\n";
         }
     }
     // EXTEND
-    inline void extend_cols(const T& value) {data.insert(data.end(),nCols,value);nRows+=1;}
-    inline void extend_cols(const std::vector<T>& v)
+    inline void append_rows(const T& value) {data.insert(data.end(),nCols,value);nRows+=1;}
+    inline void append_rows(const std::vector<T>& v)
     {
         assert(v.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.size(),nCols);
         data.insert(data.end(),v.begin(),v.begin()+copyCount);if (copyCount<nCols) data.insert(data.end(),nCols-v.size(),T{});nRows+=1;
     }
-    inline void extend_cols(std::vector<T>&& v)
+    inline void append_rows(std::vector<T>&& v)
     {
         assert(v.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.size(),nCols);
         data.insert(data.end(),std::make_move_iterator(v.begin()),std::make_move_iterator(v.begin()+copyCount));
         if (copyCount<nCols) data.insert(data.end(),nCols-v.size(),T{}); nRows+=1;
     }
     template<typename otherVec> requires requires(otherVec v){v.data;}
-    inline void extend_cols(const otherVec& v)
+    inline void append_rows(const otherVec& v)
     {
         assert(v.data.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.data.size(),nCols);
         data.insert(data.end(),v.data.begin(),v.data.begin()+copyCount); if (copyCount<nCols) data.insert(data.end(),nCols-v.data.size(),T{}); nRows+=1;
     }
-    inline void extend_cols(std::initializer_list<T> list)
+    inline void append_rows(std::initializer_list<T> list)
     {
         assert(list.size()<=nCols && "List size and column count mismatch"); size_t copyCount = std::min(list.size(),nCols);
         data.insert(data.end(),list.begin(),list.begin()+copyCount);if (copyCount<nCols) data.insert(data.end(),nCols-list.size(),T{});nRows+=1;
     }
-    inline void extend_cols(std::initializer_list<std::initializer_list<T>> lists) {for (const auto& list : lists) extend_cols(list);}
-    inline void extend_cols(size_t n,const T& value) {data.insert(data.end(),n*nCols,value);nRows+=n;}
+    inline void append_rows(std::initializer_list<std::initializer_list<T>> lists) {for (const auto& list : lists) append_rows(list);}
+    inline void append_rows(size_t n,const T& value) {data.insert(data.end(),n*nCols,value);nRows+=n;}
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
-    inline void extend_cols(const RowProxy& row)
+    inline void append_rows(const RowProxy& row)
     {
         assert(row.nCols<=nCols && "Column counts mismatch"); size_t copyCount = std::min(row.nCols,nCols);
         data.insert(data.end(),row.rowPtr,row.rowPtr+copyCount); if (copyCount<nCols) data.insert(data.end(),nCols-row.nCols,T{}); nRows+=1;
     }
     template<typename MatProxy> requires requires(MatProxy m){m.data; m.nRows; m.nCols;}
-    inline void extend_cols(const MatProxy& mat)
-    {
-        for (size_t i=0; i<mat.nRows; ++i) extend_cols(mat[i]);
-    }
+    inline void append_rows(const MatProxy& mat) {for (size_t i=0; i<mat.nRows; ++i) append_rows(mat[i]);}
+    template<typename MatProxy> requires requires(MatProxy m){m.data; m.nRows; m.nCols;} && (!std::is_lvalue_reference_v<MatProxy>)
+    inline void append_rows(MatProxy&& mat) {for (size_t i=0; i<mat.nRows; ++i) append_rows(mat[i]);}
 
-    // operator+
-    inline Matrix<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
+    // operator + - * / += -= *= /=
+    inline Matrix<T>& operator+=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]+value; return *this;}
+    inline Matrix<T>& operator-=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]-value; return *this;}
+    inline Matrix<T>& operator*=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]*value; return *this;}
+    inline Matrix<T>& operator/=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]/value; return *this;}
+    inline Matrix<T> operator+(T value) const {Matrix v=*this; return v+=value;}
+    inline Matrix<T> operator-(T value) const {Matrix v=*this; return v-=value;}
+    inline Matrix<T> operator*(T value) const {Matrix v=*this; return v*=value;}
+    inline Matrix<T> operator/(T value) const {Matrix v=*this; return v/=value;}
 };
 
 /******************************
@@ -302,6 +346,13 @@ struct NVec
     NVec() = default;
     NVec(const NVec&) = default;
     NVec(NVec&&) noexcept = default;
+    template<typename otherVec> requires requires(otherVec v){v.data;} && (!std::same_as<std::decay_t<otherVec>,NVec<T>>)
+    NVec (const otherVec& v) : data(v.data.begin(),v.data.end()) {}
+    template<typename otherVec> requires requires(otherVec v){v.data;}
+    && (!std::same_as<std::decay_t<otherVec>,NVec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+    NVec (otherVec&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
+    template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
+    NVec (const RowProxy& r) : data(r.rowPtr,r.rowPtr+r.nCols) {}
     explicit NVec (size_t n, T initVal = T{}) : data(n,initVal) {}
     NVec (std::initializer_list<T> list) : data(list) {}
     [[nodiscard]] size_t size() const noexcept {return data.size();}
@@ -312,8 +363,12 @@ struct NVec
     {
         assert(!data.empty() && "Vector is empty");
         std::ptrdiff_t N = data.size();
-        std::ptrdiff_t rem = i%N;
-        return static_cast<size_t>(rem<0?rem+N:rem);
+        if (N>0)
+        {
+            std::ptrdiff_t rem = i%N;
+            return static_cast<size_t>(rem<0?rem+N:rem);
+        }
+        else {return 0;}
     }
     inline T& operator[](std::ptrdiff_t i) noexcept {return data[wrap_index(i)];}
     inline const T& operator[](std::ptrdiff_t i) const noexcept {return data[wrap_index(i)];}
@@ -328,6 +383,9 @@ struct NVec
     inline NVec<T>& operator=(const std::vector<T>& v) {data.assign(v.begin(),v.end());return *this;}
     template<typename otherVec> requires requires(otherVec v){v.data;}
     inline NVec<T>& operator=(const otherVec& v) {data.assign(v.data.begin(),v.data.end());return *this;}
+    template<typename otherVec> requires requires(otherVec v){v.data;}
+    && (!std::same_as<std::decay_t<otherVec>,NVec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+    inline NVec<T>& operator=(otherVec&& v) {data.assign(std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end())); return *this;}
     inline NVec<T>& operator=(std::initializer_list<T> list) {data.assign(list.begin(),list.end()); return *this;}
     inline NVec<T>& operator=(T value) {std::fill(data.begin(),data.end(),value); return *this;}
 
@@ -336,10 +394,17 @@ struct NVec
     {
         if (data.empty()) {std::cout << "{}\n"; return;}
         std::cout << "{ ";
-        for (size_t i=0; i<data.size()-1; ++i) std::cout << data[i] << "\n  ";
+        for (size_t i=0; i<data.size()-1; ++i) std::cout << data[i] << ", ";
         std::cout << data[data.size()-1] << " }\n";
     }
-
+    // SLICE
+    inline NVec<T> operator[](Slice index) const noexcept
+    {
+        NVec<T> result={};
+        for (size_t i=0; i<index.size; ++i) result.push_back((*this)[index[i]]);
+        return result;
+    }
+    inline NVec<T> operator()(Slice index) const noexcept {return (*this)[index];}
     // EXTEND
     inline void push_back(const T& value) {data.push_back(value);}
     inline void push_back(T&& value) {data.push_back(std::move(value));}
@@ -349,13 +414,24 @@ struct NVec
     inline void extend(NVec<T>&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
     template<typename otherVec> requires requires(otherVec v){v.data;}
     inline void extend(const otherVec& v) {data.insert(data.end(),v.data.begin(),v.data.end());}
+    template<typename otherVec> requires requires(otherVec v){v.data;}
+    && (!std::same_as<std::decay_t<otherVec>,NVec<T>>) && (!std::is_lvalue_reference_v<otherVec>)
+	inline void extend(otherVec&& v) {data.insert(data.end(),std::make_move_iterator(v.data.begin()),std::make_move_iterator(v.data.end()));}
     inline void extend(std::initializer_list<T> list) {data.insert(data.end(),list.begin(),list.end());}
     inline void extend(size_t n, T value) {data.insert(data.end(),n,value);}
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
     inline void extend(const RowProxy& row) {data.insert(data.end(),row.rowPtr,row.rowPtr+row.nCols);}
 
-    // operator+
-    inline NVec<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
+    // operator + - * / += -= *= /= dot
+    inline NVec<T>& operator+=(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
+    inline NVec<T>& operator-=(T value){for(size_t i=0; i<data.size(); ++i) data[i]-=value; return *this;}
+    inline NVec<T>& operator*=(T value){for(size_t i=0; i<data.size(); ++i) data[i]*=value; return *this;}
+    inline NVec<T>& operator/=(T value){for(size_t i=0; i<data.size(); ++i) data[i]/=value; return *this;}
+    inline NVec<T> operator+(T value) const {NVec v=*this; return v+=value;}
+    inline NVec<T> operator-(T value) const {NVec v=*this; return v-=value;}
+    inline NVec<T> operator*(T value) const {NVec v=*this; return v*=value;}
+    inline NVec<T> operator/(T value) const {NVec v=*this; return v/=value;}
+    inline T dot(const NVec<T>& v) const {size_t size=std::min(v.size(),data.size()); T result = T{}; for (size_t i=0; i<size; ++i) result+= (v[i]*data[i]); return result;}
 };
 
 template <typename T = double>
@@ -368,7 +444,10 @@ struct NMatrix
     NMatrix(const NMatrix&) = default;
     NMatrix(NMatrix&&) noexcept = default;
     template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
-    NMatrix(const otherMatrix& m) : data(m.data), nRows(m.nRows), nCols(m.nCols) {}
+    NMatrix(const otherMatrix& m) : data(m.data.begin(),m.data.end()), nRows(m.nRows), nCols(m.nCols) {}
+    template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+    && (!std::same_as<std::decay_t<otherMatrix>,NMatrix<T>>) && (!std::is_lvalue_reference_v<otherMatrix>)
+    NMatrix(otherMatrix&& m) {nRows=m.nRows; nCols=m.nCols; data.assign(std::make_move_iterator(m.data.begin()),std::make_move_iterator(m.data.end()));}
     explicit NMatrix(size_t nrows, size_t ncols, T initVal = T{}) : nRows(nrows), nCols(ncols), data(nrows*ncols,initVal) {}
     NMatrix (std::initializer_list<T> list) : nRows(1), nCols(list.size()), data(list) {}
     NMatrix (std::initializer_list<std::initializer_list<T>> lists)
@@ -395,16 +474,23 @@ struct NMatrix
     [[nodiscard]] inline size_t wrap_row(std::ptrdiff_t i) const noexcept
     {
         assert(nRows!=0 && "Matrix must not be empty");
-        // assert(nCols!=0 && "Matrix rows must not be empty");
-        std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nRows);
-        return static_cast<size_t>(rem<0?rem+nRows:rem);
+        if (nRows>0)
+        {
+            std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nRows);
+            return static_cast<size_t>(rem<0?rem+nRows:rem);
+        }
+        else {return 0;}
     }
     [[nodiscard]] inline size_t wrap_col(std::ptrdiff_t i) const noexcept
     {
         // assert(nRows!=0 && "Matrix must not be empty");
         assert(nCols!=0 && "Matrix rows must not be empty");
-        std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
-        return static_cast<size_t>(rem<0?rem+nCols:rem);
+        if (nCols>0)
+        {
+            std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
+            return static_cast<size_t>(rem<0?rem+nCols:rem);
+        }
+        else {return 0;}
     }
 
     struct RowSubMatrix
@@ -415,8 +501,12 @@ struct NMatrix
         {
             // assert(nRows!=0 && "Matrix must not be empty");
             assert(nCols!=0 && "Matrix rows must not be empty");
-            std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
-            return static_cast<size_t>(rem<0?rem+nCols:rem);
+            if (nCols>0)
+            {
+                std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
+                return static_cast<size_t>(rem<0?rem+nCols:rem);
+            }
+            else {return 0;}
         }
         inline T& operator[](std::ptrdiff_t col) noexcept {return rowPtr[wrap_col(col)];};
         inline RowSubMatrix& operator=(std::initializer_list<T> list)
@@ -459,8 +549,12 @@ struct NMatrix
         {
             // assert(nRows!=0 && "Matrix must not be empty");
             assert(nCols!=0 && "Matrix rows must not be empty");
-            std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
-            return static_cast<size_t>(rem<0?rem+nCols:rem);
+            if (nCols>0)
+            {
+                std::ptrdiff_t rem = i%static_cast<std::ptrdiff_t>(nCols);
+                return static_cast<size_t>(rem<0?rem+nCols:rem);
+            }
+            else {return 0;}
         }
         inline const T& operator[](std::ptrdiff_t col) const noexcept {return rowPtr[wrap_col(col)];};
     };
@@ -476,7 +570,11 @@ struct NMatrix
     inline NMatrix<T>& operator=(NMatrix<T>&&) noexcept = default;
     template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
 	inline NMatrix<T>& operator=(const otherMatrix& m) {nRows=m.nRows; nCols=m.nCols; data.assign(m.data.begin(),m.data.end());return *this;}
-	inline NMatrix<T>& operator=(T value) {std::fill(data.begin(),data.end(),value); return *this;}
+	template<typename otherMatrix> requires requires(otherMatrix m){m.nRows; m.nCols; m.data;}
+	&& (!std::same_as<std::decay_t<otherMatrix>,NMatrix<T>>) && (!std::is_lvalue_reference_v<otherMatrix>)
+	inline NMatrix<T>& operator=(otherMatrix&& m)
+    {nRows=m.nRows;nCols=m.nCols; data.assign(std::make_move_iterator(m.data.begin()),std::make_move_iterator(m.data.end()));return *this;}
+    inline NMatrix<T>& operator=(T value) {std::fill(data.begin(),data.end(),value); return *this;}
 	inline NMatrix<T>& operator=(const std::vector<std::vector<T>>& vm)
     {
         if (vm.empty() || vm[0].empty()) {nRows=0;nCols=0;data.clear();return *this;}
@@ -505,6 +603,8 @@ struct NMatrix
     inline void reshape(std::ptrdiff_t r, std::ptrdiff_t c)
     {
         std::ptrdiff_t size = static_cast<std::ptrdiff_t>(data.size());
+        if (r<-1) r=std::abs(r);
+        if (c<-1) c=std::abs(c);
         if (r==-1 && c==-1) assert(false && "Cannot infer both dimensions with -1");
         else if (r==-1)
         {
@@ -518,8 +618,6 @@ struct NMatrix
             assert(size%r==0 && "Total element count is NOT divisible by requested row count");
             c = size / r;
         }
-        else if (r<-1) r=std::abs(r);
-        else if (c<-1) c=std::abs(c);
         assert(r*c==size && "Total size mismatch");
 		nRows=static_cast<size_t>(r); nCols=static_cast<size_t>(c);
     }
@@ -537,12 +635,12 @@ struct NMatrix
         std::cout << "{ ";
         for (size_t r=0; r<nRows; ++r)
         {
-            r==0?std::cout << "{ " << data[r*nCols] << '\t':std::cout << "  { " << data[r*nCols] << '\t';
-            for (size_t c=1; c<nCols-1; ++c)
+            r==0?std::cout << "{ ":std::cout << "  { ";
+            for (size_t c=0; c<nCols-1; ++c)
             {
-                std::cout << data[r*nCols+c] << '\t';
+                std::cout << data[r*nCols+c] << ", ";
             }
-            (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " }\n";
+            (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " },\n";
         }
     }
     // SLICE
@@ -558,44 +656,197 @@ struct NMatrix
         }
         return result;
     }
-    // EXTEND
-    inline void extend_cols(const T& value) {data.insert(data.end(),nCols,value);nRows+=1;}
-    inline void extend_cols(const std::vector<T>& v)
+    inline NMatrix<T> operator()(Slice rs, Slice cs) const noexcept {return (*this)[rs,cs];}
+    // APPEND/EXTEND
+    inline void append_rows(const T& value) {data.insert(data.end(),nCols,value);nRows+=1;}
+    inline void append_cols(const T& value) {for (size_t r=0; r<nRows; ++r) data.insert(data.begin()+(r+1)*nCols-1,value); nCols+=1;}
+    inline void append_rows(const std::vector<T>& v)
     {
         assert(v.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.size(),nCols);
         data.insert(data.end(),v.begin(),v.begin()+copyCount);if (copyCount<nCols) data.insert(data.end(),nCols-v.size(),T{});nRows+=1;
     }
-    inline void extend_cols(std::vector<T>&& v)
+    inline void append_rows(std::vector<T>&& v)
     {
         assert(v.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.size(),nCols);
         data.insert(data.end(),std::make_move_iterator(v.begin()),std::make_move_iterator(v.begin()+copyCount));
         if (copyCount<nCols) data.insert(data.end(),nCols-v.size(),T{}); nRows+=1;
     }
     template<typename otherVec> requires requires(otherVec v){v.data;}
-    inline void extend_cols(const otherVec& v)
+    inline void append_rows(const otherVec& v)
     {
         assert(v.data.size()<=nCols && "Vector size and column counts mismatch"); size_t copyCount = std::min(v.data.size(),nCols);
         data.insert(data.end(),v.data.begin(),v.data.begin()+copyCount); if (copyCount<nCols) data.insert(data.end(),nCols-v.data.size(),T{}); nRows+=1;
     }
-    inline void extend_cols(std::initializer_list<T> list)
+    inline void append_rows(std::initializer_list<T> list)
     {
         assert(list.size()<=nCols && "List size and column count mismatch"); size_t copyCount = std::min(list.size(),nCols);
         data.insert(data.end(),list.begin(),list.begin()+copyCount);if (copyCount<nCols) data.insert(data.end(),nCols-list.size(),T{});nRows+=1;
     }
-    inline void extend_cols(std::initializer_list<std::initializer_list<T>> lists) {for (const auto& list : lists) extend_cols(list);}
-    inline void extend_cols(size_t n,const T& value) {data.insert(data.end(),n*nCols,value);nRows+=n;}
+    inline void append_rows(std::initializer_list<std::initializer_list<T>> lists) {for (const auto& list : lists) append_rows(list);}
+    inline void append_rows(size_t n,const T& value) {data.insert(data.end(),n*nCols,value);nRows+=n;}
     template<typename RowProxy> requires requires(RowProxy r){r.rowPtr; r.nCols;}
-    inline void extend_cols(const RowProxy& row)
+    inline void append_rows(const RowProxy& row)
     {
         assert(row.nCols<=nCols && "Column counts mismatch"); size_t copyCount = std::min(row.nCols,nCols);
         data.insert(data.end(),row.rowPtr,row.rowPtr+copyCount); if (copyCount<nCols) data.insert(data.end(),nCols-row.nCols,T{}); nRows+=1;
     }
     template<typename MatProxy> requires requires(MatProxy m){m.data; m.nRows; m.nCols;}
-    inline void extend_cols(const MatProxy& mat)
+    inline void append_rows(const MatProxy& mat)
     {
-        for (size_t i=0; i<mat.nRows; ++i) extend_cols(mat[i]);
+        for (size_t i=0; i<mat.nRows; ++i) append_rows(mat[i]);
     }
 
-    // operator+
-    inline NMatrix<T>& operator+(T value){for(size_t i=0; i<data.size(); ++i) data[i]+=value; return *this;}
+    // operator + - * / += -= *= /=
+    inline NMatrix<T>& operator+=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]+value; return *this;}
+    inline NMatrix<T>& operator-=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]-value; return *this;}
+    inline NMatrix<T>& operator*=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]*value; return *this;}
+    inline NMatrix<T>& operator/=(T value){for(size_t i=0; i<data.size(); ++i) data[i]=data[i]/value; return *this;}
+    inline NMatrix<T> operator+(T value) const {NMatrix v=*this; return v+=value;}
+    inline NMatrix<T> operator-(T value) const {NMatrix v=*this; return v-=value;}
+    inline NMatrix<T> operator*(T value) const {NMatrix v=*this; return v*=value;}
+    inline NMatrix<T> operator/(T value) const {NMatrix v=*this; return v/=value;}
 };
+
+/******************************************************************
+ *                                      \                         *
+ *                                       \\                       *
+ *                                        \\\                     *
+ *                                         \\\\                   *
+ *                                          \\\\\                 *
+ *  \                                        \\\\\\               *
+ *  \\          /XXXXXXXXXX\                  \\\\\\\             *
+ *  \\\        ///XXXXXXXX\\\                  \\\/\/\            *
+ *   \\\\     ////XXXXXXX\\\\\\                 \//\/\\\          *
+ *   \\\\\   //////XXXXX\\\\\\\\                 ||||||||>>       *
+ *   \\\\\\ //////XXXXX\\\\\\\\\\                /||||//          *
+ *    \\\\\X//////XXX\\\\\\\\\\\\\\             //|||/            *
+ *    \\\\XXX////XX\\\\\\\\\\\\\\\\\           ///||/             *
+ *     \\\XXXX/// \\\\\\\\\\\\\\\\\\\         ////|/              *
+ *     \\XXXXXX   \\\\\\\\\\\\\\\\\\\\       //////               *
+ *      \XXXX\\\\//\\\\\\\\\\\\\\\\\\\\\   ///////                *
+ *      /XXX\\\\\\//\\\\\\\\\\\\\\\\\\\\\\///////                 *
+ *     ///X\\\\\\\//\\\\\\\\\\\\\\\\\\\\\\\////                   *
+ *    ///  \\\\\\\\/\/\/\/\/\/\/\/\/\/\/\/\///                    *
+ *   //       \\\\\\/\/\/\/\/\/\/\/\/\/\/\///                     *
+ *  /             \\\/\/\/\/\/\/\/\/\/\///                        *
+ *                   \/\/\/\/\/\/\/\/\/                           *
+ *                      \/\/\/\/\/                                *
+ *                       \/\/\/\/                                 *
+ *                        \/\/\/                                  *
+ *                         ||||                                   *
+ *                         ||||                                   *
+ *                          ||                                    *
+ *                          ||                                    *
+ *                         ||||                                   *
+ *                         ||||                                   *
+ *                        //  \\                                  *
+ *                      /XX    XX\                                *
+ * ****************************************************************/
+
+template <typename T>
+inline Matrix<T> operator*(const Vec<T>& v1, const Vec<T>& v2)
+{
+    size_t nRow = v1.size(); size_t nCol = v2.size(); Matrix<T> result(nRow,nCol,T{});
+    for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) result[r,c] = v1[r]*v2[c]; return result;
+}
+
+template <typename T>
+inline T dot(const Vec<T>& v1,const Vec<T>& v2, bool forceMultiply=false)
+{
+    if (forceMultiply) { size_t size=std::min(v1.data.size(),v2.data.size()); T result = T{}; for (size_t i=0; i<size; ++i) result+= (v1[i]*v2[i]); return result; }
+    else
+    {
+        assert(v1.data.size()==v2.data.size() && "Dimension mismatch");size_t size=v1.data.size(); T result = T{};
+        for (size_t i=0; i<size; ++i) result+= (v1[i]*v2[i]); return result;
+    }
+}
+
+template <typename T>
+inline Matrix<T> matmul(const Matrix<T>& m1, const Matrix<T>& m2, bool forceMultiply=false)
+{
+    if (forceMultiply)
+    {
+        size_t nRow = m1.nRows; size_t nCol = m2.nCols; size_t nMiddle = std::min(m1.nCols,m2.nRows); Matrix<T> result(nRow,nCol,T{});
+        for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) for (size_t m=0; m<nMiddle; ++m) result[r,c] += m1[r,m]*m2[m,c];
+        return result;
+    }
+    else
+    {
+        assert(m1.nCols==m2.nRows && "Dimension mismatch");
+        size_t nRow = m1.nRows; size_t nCol = m2.nCols; size_t nMiddle = m1.nCols; Matrix<T> result(nRow,nCol,T{});
+        for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) for (size_t m=0; m<nMiddle; ++m) result[r,c] += m1[r,m]*m2[m,c];
+        return result;
+	}
+}
+
+template <typename T>
+inline Matrix<T> operator*(const Matrix<T>& m1, const Matrix<T>& m2) { return matmul(m1,m2,false); }
+template <typename T>
+inline Vec<T> matmul(const Matrix<T>& m, const Vec<T>& v, bool forceMultiply=false)
+{
+    if (forceMultiply)
+    {
+        size_t size=m.nRows; size_t nMiddle=std::min(m.nCols,v.data.size()); Vec<T> result(size, T{});
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[i,j]*v[j];
+        return result;
+    }
+    else
+    {
+        assert(m.nCols==v.data.size() && "Dimension mismatch");size_t size=m.nRows; size_t nMiddle=m.nCols; Vec<T> result(size, T{});
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[i,j]*v[j];
+        return result;
+    }
+}
+template <typename T>
+inline Vec<T> operator*(const Matrix<T>& m, const Vec<T>& v) { return matmul(m,v,false); }
+template <typename T>
+inline Vec<T> matmul(const Vec<T>& v, const Matrix<T>& m, bool forceMultiply=false)
+{
+    if (forceMultiply)
+    {
+        size_t size=m.nCols; size_t nMiddle=std::min(m.nRows,v.data.size()); Vec<T> result(size, T{});
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[j,i]*v[j];
+        return result;
+    }
+    else
+    {
+        assert(m.nRows==v.data.size() && "Dimension mismatch");size_t size=m.nCols; size_t nMiddle=m.nRows; Vec<T> result(size, T{});
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[j,i]*v[j];
+        return result;
+    }
+}
+template <typename T>
+inline Vec<T> operator*(const Vec<T>& v, const Matrix<T>& m) { return matmul(v,m,false); }
+
+template <typename T>
+inline Vec<T> SchurProduct(const Vec<T>& v1, const Vec<T>& v2, bool forceMultiply=false)
+{
+    if (forceMultiply)
+    {
+        size_t size=std::min(v1.data.size(),v2.data.size()); Vec<T> result(size,T{});
+        for (size_t i=0; i<size; ++i) result[i] = v1[i]*v2[i]; return result;
+    }
+    else
+    {
+        assert(v1.data.size()==v2.data.size() && "Vector size mismatch"); size_t size=v1.data.size(); Vec<T> result(size,T{});
+        for (size_t i=0; i<size; ++i) result[i] = v1[i]*v2[i]; return result;
+	}
+}
+
+template<typename T>
+inline Matrix<T> SchurProduct(const Matrix<T>& m1, const Matrix<T>& m2, bool forceMultiply=false)
+{
+    if (forceMultiply)
+    {
+        size_t nRow=std::min(m1.nRows,m2.nRows); size_t nCol=std::min(m1.nCols,m2.nCols); size_t size=nRow*nCol; Matrix<T> result(nRow,nCol,T{});
+        for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) result[r,c] = m1[r,c]*m2[r,c]; return result;
+    }
+    else
+    {
+        assert((m1.nRows==m2.nRows && m1.nCols==m2.nCols) && "Matrix size mismatch");
+        size_t nRow=m1.nRows; size_t nCol=m1.nCols; size_t size=nRow*nCol; Matrix<T> result(nRow,nCol,T{});
+        for (size_t i=0; i<size; ++i) result.data[i] = m1.data[i]*m2.data[i]; return result;
+    }
+}
+
+
