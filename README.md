@@ -8,5 +8,6 @@ This is an attempt to recreate numpy style vectors and matrices.
 - [x] Added append *row* and *column*, and multiple other append features to both `Vec | NVec` and `Matrix | NMatrix` types.
 - [x] Added *NumPy* style **indexing** to `NVec` and `NMatrix`.
 - [x] Added *NumPy* style **slicing** to `NMatrix`.
+- [x] Added *matrix transpose methods*.
 
 Feel free to contact me with any *improvement/feature addition* idea or *critiques*.

@@ -1,13 +1,52 @@
+
+/**********************************************************************************************************************
+ *                                                                                                                    *
+ *                                                                                                                    *
+ *                           \                             /\                             /                           *
+ *                            \\                          //\\                          //                            *
+ *                             \\\                       ///\\\                       ///                             *
+ *                              \\\\                    ////\\\\                    ////                              *
+ *                               \\\\\                 /////\\\\\                 /////                               *
+ *                                \\\\\\              //////\\\\\\              //////                                *
+ *                                 \\\\\\\           ///////\\\\\\\           ///////                                 *
+ *                                  \\\\\\\\        ////////\\\\\\\\        ////////                                  *
+ *                                   \\\\\\\\\     /////////\\\\\\\\\     /////////                                   *
+ *                                    \\\\\\\\\\  //////////\\\\\\\\\\  //////////                                    *
+ *                                     \\\\\\\\\\X/////////  \\\\\\\\\X//////////                                     *
+ *                                      \\\\\\\\XXXX//////    \\\\\\XXXX////////                                      *
+ *                                       \\\\\\XXXXXXX///      \\\XXXXXXX//////                                       *
+ *                                        \\\\XXXXXXXXXX        XXXXXXXXXX////                                        *
+ *                                         \\XXXXXXXXXX\\\    ///XXXXXXXXXX//                                         *
+ *                                          XXXXXXXXXX\\\\\\//////XXXXXXXXXX                                          *
+ *                                         //XXXXXXXX\\\\\XXXX/////XXXXXXXX\\                                         *
+ *                                        ////XXXXXX\\\\XXXXXXXX////XXXXXX\\\\                                        *
+ *                                       //////XXXX\\\XXXXXXXXXXXX///XXXX\\\\\\                                       *
+ *                                      ////////XX\\XXXXXXXXXXXXXXXX//XX\\\\\\\\                                      *
+ *                                     //////////\XXXXXXXXXXXXXXXXXXXX/\\\\\\\\\\                                     *
+ *                                    //////////  \\XXXXXXXXXXXXXXXX//  \\\\\\\\\\                                    *
+ *                                   //////////    \\\XXXXXXXXXXXX///    \\\\\\\\\\                                   *
+ *                                  //////////      \\\\XXXXXXXX////      \\\\\\\\\\                                  *
+ *                                 //////////        \\\\\XXXX/////        \\\\\\\\\\                                 *
+ *                                //////////          \\\\\\//////          \\\\\\\\\\                                *
+ *                               //////////            \\\\\/////            \\\\\\\\\\                               *
+ *                              //////////              \\\\////              \\\\\\\\\\                              *
+ *                             //////////                \\\///                \\\\\\\\\\                             *
+ *                            //////////                  \\//                  \\\\\\\\\\                            *
+ *                           //////////                    \/                    \\\\\\\\\\                           *
+ *                                                                                                                    *
+ *                                                                                                                    *
+ **********************************************************************************************************************/
+
 #pragma once
 #include <cassert>
 #include <cstddef>
 #include <stdexcept>
-// #include <iterator>
+#include <iterator>
 #include <utility>
 #include <vector>
 #include <iostream>
 #include <algorithm>
-// #include <initializer_list>
+#include <initializer_list>
 #include <limits>
 #include <stdio.h>
 
@@ -114,30 +153,40 @@ struct Vec
     inline Vec<T> operator-(T value) const {Vec v=*this; return v-=value;}
     inline Vec<T> operator*(T value) const {Vec v=*this; return v*=value;}
     inline Vec<T> operator/(T value) const {Vec v=*this; return v/=value;}
-    inline T dot(const Vec<T>& v) const {size_t size=std::min(v.size(),data.size()); T result = T{}; for (size_t i=0; i<size; ++i) result+= (v[i]*data[i]); return result;}
 	// unary
     inline Vec<T> operator-() const {Vec<T> result=*this; for (auto& val : result.data) val=-val; return result;}
     inline Vec<T> operator-() && {for (auto& val : data) val=-val; return *this;}
 	// binary
-	inline Vec<T>& operator+=(const Vec& v)
+	template<typename U>
+	inline Vec<T>& operator+=(const Vec<U>& v)
     {
         if (data.size()!=v.data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]+v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]+static_cast<T>(v.data[i]); return *this;
     }
-	inline Vec<T>& operator-=(const Vec& v)
+    template<typename U>
+    inline Vec<T>& operator-=(const Vec<U>& v)
     {
         if (data.size()!=v.data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]-v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]-static_cast<T>(v.data[i]); return *this;
     }
-	inline Vec<T>& operator*=(const Vec& v)
+    template<typename U>
+    inline Vec<T>& operator*=(const Vec<U>& v)
     {
         if (data.size()!=v.data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]*v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]*static_cast<T>(v.data[i]); return *this;
     }
-	inline Vec<T>& operator/=(const Vec& v)
+    template<typename U>
+    inline Vec<T>& operator/=(const Vec<U>& v)
     {
         if (data.size()!=v.data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]/v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]/static_cast<T>(v.data[i]); return *this;
+    }
+    // DOT
+    template<typename U>
+    inline T dot(const Vec<U>& v) const
+    {
+        if (v.data.size()!=data.size()) throw std::runtime_error("Vector sizes mismatch"); T result=T{};
+        for (size_t i=0; i<data.size(); ++i) result+=data[i]*static_cast<T>(v.data[i]); return result;
     }
 };
 
@@ -455,25 +504,59 @@ struct Matrix
     inline Matrix<T> operator-() const {Matrix<T> result=*this; for (auto& val : result.data) val=-val; return result;}
     inline Matrix<T> operator-() && {for (auto& val : data) val=-val; return *this;}
     // binary
-    inline Matrix<T>& operator+=(const Matrix& m)
+    template<typename U>
+    inline Matrix<T>& operator+=(const Matrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]+m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]+static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline Matrix<T>& operator-=(const Matrix& m)
+    template<typename U>
+    inline Matrix<T>& operator-=(const Matrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]-m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]-static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline Matrix<T>& operator*=(const Matrix& m)
+    template<typename U>
+    inline Matrix<T>& operator*=(const Matrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]*m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]*static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline Matrix<T>& operator/=(const Matrix& m)
+    template<typename U>
+    inline Matrix<T>& operator/=(const Matrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]/m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]/static_cast<T>(m.data[r*m.nCols+c]); return *this;
+    }
+    // Transpose
+    inline Matrix<T>& Transpose()
+    {
+        if (nRows==0 || nCols==0) return *this;
+        else if (nRows==1 || nCols==1) {std::swap(nRows,nCols); return *this;}
+        else if (nCols==nRows)
+        {
+            for (size_t r=0; r<nRows; ++r)
+                for (size_t c=r+1; c<nCols; ++c)
+                    std::swap(data[r*nCols+c],data[c*nRows+r]);
+            return *this;
+        }
+        else
+        {
+            std::vector<T> tdata(nRows*nCols);
+            constexpr size_t BLOCKSIZE = 32;
+            for (size_t r0=0; r0<nRows; r0+=BLOCKSIZE)
+            {
+                for (size_t c0=0; c0<nCols; c0+=BLOCKSIZE)
+                {
+                    size_t rMax = std::min(r0+BLOCKSIZE,nRows);
+                    size_t cMax = std::min(c0+BLOCKSIZE,nCols);
+                    for (size_t r=r0; r<rMax; ++r)
+                        for (size_t c=c0; c<cMax; ++c)
+                            tdata[c*nRows+r] = data[r*nCols+c];
+                }
+            }
+            data = std::move(tdata); std::swap(nRows,nCols); return *this;
+        }
     }
 };
 
@@ -590,25 +673,37 @@ struct NVec
     inline NVec<T> operator-() const {NVec<T> result=*this; for (auto& val : result.data) val=-val; return result;}
     inline NVec<T> operator-() && {for (auto& val : data) val=-val; return *this;}
     // binary
-    inline NVec<T>& operator+=(const NVec& v)
+    template<typename U>
+    inline NVec<T>& operator+=(const NVec<U>& v)
     {
         if (v.data.size()!=data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]+v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]+static_cast<T>(v.data[i]); return *this;
     }
-    inline NVec<T>& operator-=(const NVec& v)
+    template<typename U>
+    inline NVec<T>& operator-=(const NVec<U>& v)
     {
         if (v.data.size()!=data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]-v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]-static_cast<T>(v.data[i]); return *this;
     }
-    inline NVec<T>& operator*=(const NVec& v)
+    template<typename U>
+    inline NVec<T>& operator*=(const NVec<U>& v)
     {
         if (v.data.size()!=data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]*v.data[i]; return *this;
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]*static_cast<T>(v.data[i]); return *this;
     }
-    inline NVec<T>& operator/=(const NVec& v)
+    template<typename U>
+    inline NVec<T>& operator/=(const NVec<U>& v)
     {
         if (v.data.size()!=data.size()) throw std::runtime_error("Vector size mismatch");
-        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]/v.data[i]; return *this;}
+        size_t n=data.size(); for (size_t i=0; i<n; ++i) data[i]=data[i]/static_cast<T>(v.data[i]); return *this;
+    }
+    // DOT
+    template<typename U>
+    inline T dot(const Vec<U>& v) const
+    {
+        if (v.data.size()!=data.size()) throw std::runtime_error("Vector sizes mismatch"); T result=T{};
+        for (size_t i=0; i<data.size(); ++i) result+=data[i]*static_cast<T>(v.data[i]); return result;
+    }
 };
 
 template <typename T = double>
@@ -988,25 +1083,59 @@ struct NMatrix
     inline NMatrix<T> operator-() const {NMatrix<T> result=*this; for (auto& val : result.data) val=-val; return result;}
     inline NMatrix<T> operator-() && {for (auto& val : data) val=-val; return *this;}
     // binary
-    inline NMatrix<T>& operator+=(const NMatrix& m)
+    template<typename U>
+    inline NMatrix<T>& operator+=(const NMatrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]+m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]+static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline NMatrix<T>& operator-=(const NMatrix& m)
+    template<typename U>
+    inline NMatrix<T>& operator-=(const NMatrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]-m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]-static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline NMatrix<T>& operator*=(const NMatrix& m)
+    template<typename U>
+    inline NMatrix<T>& operator*=(const NMatrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]*m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]*static_cast<T>(m.data[r*m.nCols+c]); return *this;
     }
-    inline NMatrix<T>& operator/=(const NMatrix& m)
+    template<typename U>
+    inline NMatrix<T>& operator/=(const NMatrix<U>& m)
     {
         if (m.nRows!=nRows || m.nCols!=nCols) throw std::runtime_error("Matrix dimension mismatch");
-        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]/m.data[r*m.nCols+c]; return *this;
+        for (size_t r=0; r<nRows; ++r) for (size_t c=0; c<nCols; ++c) data[r*nCols+c]=data[r*nCols+c]/static_cast<T>(m.data[r*m.nCols+c]); return *this;
+    }
+    // Transpose
+    inline NMatrix<T>& Transpose()
+    {
+        if (nRows==0 || nCols==0) return *this;
+        else if (nRows==1 || nCols==1) {std::swap(nRows,nCols); return *this;}
+        else if (nCols==nRows)
+    	{
+            for (size_t r=0; r<nRows; ++r)
+                for (size_t c=r+1; c<nCols; ++c)
+                    std::swap(data[r*nCols+c],data[c*nRows+r]);
+            return *this;
+        }
+        else
+        {
+            std::vector<T> tdata(nRows*nCols);
+            constexpr size_t BLOCKSIZE = 32;
+            for (size_t r0=0; r0<nRows; r0+=BLOCKSIZE)
+            {
+                for (size_t c0=0; c0<nCols; c0+=BLOCKSIZE)
+                {
+                    size_t rMax = std::min(r0+BLOCKSIZE,nRows);
+                    size_t cMax = std::min(c0+BLOCKSIZE,nCols);
+                    for (size_t r=r0; r<rMax; ++r)
+                        for (size_t c=c0; c<cMax; ++c)
+		                    tdata[c*nRows+r] = data[r*nCols+c];
+            	}
+        	}
+        	data = std::move(tdata); std::swap(nRows,nCols); return *this;
+        }
     }
 };
 
@@ -1018,8 +1147,8 @@ struct NMatrix
  *                                          \\\\\                 *
  *  \                                        \\\\\\               *
  *  \\          /XXXXXXXXXX\                  \\\\\\\             *
- *  \\\        ///XXXXXXXX\\\                  \\\/\/\            *
- *   \\\\     ////XXXXXXX\\\\\\                 \//\/\\\          *
+ *  \\\        ///XXXXXXXX\\\                  \\\\\\\            *
+ *   \\\\     ////XXXXXXX\\\\\\                 \\\\/\\\          *
  *   \\\\\   //////XXXXX\\\\\\\\                 ||||||||>>       *
  *   \\\\\\ //////XXXXX\\\\\\\\\\                /||||//          *
  *    \\\\\X//////XXX\\\\\\\\\\\\\\             //|||/            *
@@ -1040,14 +1169,14 @@ struct NMatrix
  *                         ||||                                   *
  *                          ||                                    *
  *                          ||                                    *
- *                         ||||                                   *
+ *                          ||                                    *
  *                         ||||                                   *
  *                        //  \\                                  *
  *                      /XX    XX\                                *
  ******************************************************************/
 
-template <typename T>
-inline T dot(const Vec<T>& v1,const Vec<T>& v2, bool forceMultiply=false)
+template <typename T, typename U>
+inline T dot(const Vec<T>& v1,const Vec<U>& v2, bool forceMultiply=false)
 {
     if (forceMultiply) { size_t size=std::min(v1.data.size(),v2.data.size()); T result = T{}; for (size_t i=0; i<size; ++i) result+= (v1[i]*v2[i]); return result; }
     else
@@ -1055,24 +1184,27 @@ inline T dot(const Vec<T>& v1,const Vec<T>& v2, bool forceMultiply=false)
         assert(v1.data.size()==v2.data.size() && "Dimension mismatch");
         if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch");
         size_t size=v1.data.size(); T result = T{};
-        for (size_t i=0; i<size; ++i) result+= (v1[i]*v2[i]); return result;
+        for (size_t i=0; i<size; ++i) result+= (v1.data[i]*static_cast<T>(v2.data[i])); return result;
     }
 }
 
-template <typename T>
-inline Matrix<T> matmul(const Vec<T>& v1, const Vec<T>& v2)
+template <typename T, typename U>
+inline Matrix<T> matmul(const Vec<T>& v1, const Vec<U>& v2)
 {
     size_t nRow = v1.size(); size_t nCol = v2.size(); Matrix<T> result(nRow,nCol,T{});
-    for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) result[r,c] = v1[r]*v2[c]; return result;
+    for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) result.data[r*nCol+c] = v1.data[r]*static_cast<T>(v2.data[c]); return result;
 }
 
-template <typename T>
-inline Matrix<T> matmul(const Matrix<T>& m1, const Matrix<T>& m2, bool forceMultiply=false)
+template <typename T, typename U>
+inline Matrix<T> matmul(const Matrix<T>& m1, const Matrix<U>& m2, bool forceMultiply=false)
 {
     if (forceMultiply)
     {
         size_t nRow = m1.nRows; size_t nCol = m2.nCols; size_t nMiddle = std::min(m1.nCols,m2.nRows); Matrix<T> result(nRow,nCol,T{});
-        for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) for (size_t m=0; m<nMiddle; ++m) result[r,c] += m1[r,m]*m2[m,c];
+        for (size_t r=0; r<nRow; ++r)
+            for (size_t c=0; c<nCol; ++c)
+                for (size_t m=0; m<nMiddle; ++m)
+                    result.data[r*nCol+c] += m1.data[r*m1.nCols+m]*static_cast<T>(m2.data[m*m2.nCols+c]);
         return result;
     }
     else
@@ -1080,18 +1212,21 @@ inline Matrix<T> matmul(const Matrix<T>& m1, const Matrix<T>& m2, bool forceMult
         assert(m1.nCols==m2.nRows && "Dimension mismatch");
         if (m1.nCols!=m2.nRows) throw std::runtime_error("Matrix dimension mismatch");
         size_t nRow = m1.nRows; size_t nCol = m2.nCols; size_t nMiddle = m1.nCols; Matrix<T> result(nRow,nCol,T{});
-        for (size_t r=0; r<nRow; ++r) for (size_t c=0; c<nCol; ++c) for (size_t m=0; m<nMiddle; ++m) result[r,c] += m1[r,m]*m2[m,c];
+        for (size_t r=0; r<nRow; ++r)
+            for (size_t c=0; c<nCol; ++c)
+                for (size_t m=0; m<nMiddle; ++m)
+                    result.data[r*nCol+c] += m1.data[r*m1.nCols+m]*static_cast<T>(m2.data[m*m2.nCols+c]);
         return result;
 	}
 }
 
-template <typename T>
-inline Vec<T> matmul(const Matrix<T>& m, const Vec<T>& v, bool forceMultiply=false)
+template <typename T, typename U>
+inline Vec<T> matmul(const Matrix<T>& m, const Vec<U>& v, bool forceMultiply=false)
 {
     if (forceMultiply)
     {
         size_t size=m.nRows; size_t nMiddle=std::min(m.nCols,v.data.size()); Vec<T> result(size, T{});
-        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[i,j]*v[j];
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result.data[i] += m.data[i*m.nCols+j]*static_cast<T>(v.data[j]);
         return result;
     }
     else
@@ -1099,17 +1234,17 @@ inline Vec<T> matmul(const Matrix<T>& m, const Vec<T>& v, bool forceMultiply=fal
         assert(m.nCols==v.data.size() && "Dimension mismatch");
         if (m.nCols!=v.data.size()) throw std::runtime_error("Matrix column count and vector size mismatch");
         size_t size=m.nRows; size_t nMiddle=m.nCols; Vec<T> result(size, T{});
-        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[i,j]*v[j];
+        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result.data[i] += m.data[i*m.nCols+j]*static_cast<T>(v.data[j]);
         return result;
     }
 }
-template <typename T>
-inline Vec<T> matmul(const Vec<T>& v, const Matrix<T>& m, bool forceMultiply=false)
+template <typename T, typename U>
+inline Vec<T> matmul(const Vec<T>& v, const Matrix<U>& m, bool forceMultiply=false)
 {
     if (forceMultiply)
     {
         size_t size=m.nCols; size_t nMiddle=std::min(m.nRows,v.data.size()); Vec<T> result(size, T{});
-        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[j,i]*v[j];
+        for (size_t j=0; j<nMiddle; ++j) for (size_t i=0; i<size; ++i)  result.data[i] += static_cast<T>(m.data[j*m.nCols+i])*v.data[j];
         return result;
     }
     else
@@ -1117,13 +1252,13 @@ inline Vec<T> matmul(const Vec<T>& v, const Matrix<T>& m, bool forceMultiply=fal
         assert(m.nRows==v.data.size() && "Dimension mismatch");
         if (m.nRows!=v.data.size()) throw std::runtime_error("Matrix row count and vector size mismatch");
         size_t size=m.nCols; size_t nMiddle=m.nRows; Vec<T> result(size, T{});
-        for (size_t i=0; i<size; ++i) for (size_t j=0; j<nMiddle; ++j) result[i] += m[j,i]*v[j];
+        for (size_t j=0; j<nMiddle; ++j) for (size_t i=0; i<size; ++i)  result.data[i] += static_cast<T>(m.data[j*m.nCols+i])*v.data[j];
         return result;
     }
 }
 
-template <typename T>
-inline Vec<T> SchurProduct(const Vec<T>& v1, const Vec<T>& v2, bool forceMultiply=false)
+template <typename T, typename U>
+inline Vec<T> SchurProduct(const Vec<T>& v1, const Vec<U>& v2, bool forceMultiply=false)
 {
     if (forceMultiply)
     {
@@ -1139,8 +1274,8 @@ inline Vec<T> SchurProduct(const Vec<T>& v1, const Vec<T>& v2, bool forceMultipl
 	}
 }
 
-template<typename T>
-inline Matrix<T> SchurProduct(const Matrix<T>& m1, const Matrix<T>& m2, bool forceMultiply=false)
+template<typename T, typename U>
+inline Matrix<T> SchurProduct(const Matrix<T>& m1, const Matrix<U>& m2, bool forceMultiply=false)
 {
     if (forceMultiply)
     {
@@ -1175,30 +1310,30 @@ inline Matrix<T> SchurProduct(const Matrix<T>& m1, const Matrix<T>& m2, bool for
  *                                                                                 *
  ***********************************************************************************/
 
-template<typename T>
-inline Vec<T> operator+(const Vec<T>& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator+(const Vec<T>& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); Vec<T> result=v1; result+=v2; return result;}
-template<typename T>
-inline Vec<T> operator+(const Vec<T>& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator+(const Vec<T>& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v2+=v1; return std::move(v2);}
-template<typename T>
-inline Vec<T> operator+(Vec<T>&& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator+(Vec<T>&& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1+=v2; return std::move(v1);}
-template<typename T>
-inline Vec<T> operator+(Vec<T>&& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator+(Vec<T>&& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1+=v2; return std::move(v1);}
 
-template<typename T>
-inline NVec<T> operator+(const NVec<T>& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator+(const NVec<T>& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); NVec<T> result=v1; result+=v2; return result;}
-template<typename T>
-inline NVec<T> operator+(const NVec<T>& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator+(const NVec<T>& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v2+=v1; return std::move(v2);}
-template<typename T>
-inline NVec<T> operator+(NVec<T>&& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator+(NVec<T>&& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1+=v2; return std::move(v1);}
-template<typename T>
-inline NVec<T> operator+(NVec<T>&& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator+(NVec<T>&& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1+=v2; return std::move(v1);}
 
 // v1 - v2
@@ -1220,36 +1355,36 @@ inline NVec<T> operator+(NVec<T>&& v1, NVec<T>&& v2)
  *                                                                                 *
  ***********************************************************************************/
 
-template<typename T>
-inline Vec<T> operator-(const Vec<T>& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator-(const Vec<T>& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); Vec<T> result=v1; result-=v2; return result;}
-template<typename T>
-inline Vec<T> operator-(const Vec<T>& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator-(const Vec<U>& v1, Vec<T>&& v2)
 {
     if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch");
     size_t n=std::min(v1.data.size(),v2.data.size()); for (size_t i=0; i<n; ++i) v2.data[i]=v1.data[i]-v2.data[i]; return std::move(v2);
 }
-template<typename T>
-inline Vec<T> operator-(Vec<T>&& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator-(Vec<T>&& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1-=v2; return std::move(v1);}
-template<typename T>
-inline Vec<T> operator-(Vec<T>&& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator-(Vec<T>&& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1-=v2; return std::move(v1);}
 
-template<typename T>
-inline NVec<T> operator-(const NVec<T>& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator-(const NVec<T>& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); NVec<T> result=v1; result-=v2; return result;}
-template<typename T>
-inline NVec<T> operator-(const NVec<T>& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator-(const NVec<U>& v1, NVec<T>&& v2)
 {
     if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch");
     size_t n=std::min(v1.data.size(),v2.data.size()); for (size_t i=0; i<n; ++i) v2.data[i]=v1.data[i]-v2.data[i]; return std::move(v2);
 }
-template<typename T>
-inline NVec<T> operator-(NVec<T>&& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator-(NVec<T>&& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1-=v2; return std::move(v1);}
-template<typename T>
-inline NVec<T> operator-(NVec<T>&& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator-(NVec<T>&& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1-=v2; return std::move(v1);}
 
 // v1 * v2
@@ -1271,30 +1406,30 @@ inline NVec<T> operator-(NVec<T>&& v1, NVec<T>&& v2)
  *                                                                                        *
  ******************************************************************************************/
 
-template<typename T>
-inline Vec<T> operator*(const Vec<T>& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator*(const Vec<T>& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); Vec<T> result=v1; result*=v2; return result;}
-template<typename T>
-inline Vec<T> operator*(const Vec<T>& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator*(const Vec<T>& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v2*=v1; return std::move(v2);}
-template<typename T>
-inline Vec<T> operator*(Vec<T>&& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator*(Vec<T>&& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1*=v2; return std::move(v1);}
-template<typename T>
-inline Vec<T> operator*(Vec<T>&& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator*(Vec<T>&& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1*=v2; return std::move(v1);}
 
-template<typename T>
-inline NVec<T> operator*(const NVec<T>& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator*(const NVec<T>& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); NVec<T> result=v1; result*=v2; return result;}
-template<typename T>
-inline NVec<T> operator*(const NVec<T>& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator*(const NVec<T>& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v2*=v1; return std::move(v2);}
-template<typename T>
-inline NVec<T> operator*(NVec<T>&& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator*(NVec<T>&& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1*=v2; return std::move(v1);}
-template<typename T>
-inline NVec<T> operator*(NVec<T>&& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator*(NVec<T>&& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1*=v2; return std::move(v1);}
 
 // v1 * v2
@@ -1316,36 +1451,36 @@ inline NVec<T> operator*(NVec<T>&& v1, NVec<T>&& v2)
  *                                                                                        *
  ******************************************************************************************/
 
-template<typename T>
-inline Vec<T> operator/(const Vec<T>& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator/(const Vec<T>& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); Vec<T> result=v1; result/=v2; return result;}
-template<typename T>
-inline Vec<T> operator/(const Vec<T>& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator/(const Vec<U>& v1, Vec<T>&& v2)
 {
     if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch");
     size_t n=std::min(v1.data.size(),v2.data.size()); for (size_t i=0; i<n; ++i) v2.data[i]=v1.data[i]/v2.data[i]; return std::move(v2);
 }
-template<typename T>
-inline Vec<T> operator/(Vec<T>&& v1, const Vec<T>& v2)
+template<typename T, typename U>
+inline Vec<T> operator/(Vec<T>&& v1, const Vec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1/=v2; return std::move(v1);}
-template<typename T>
-inline Vec<T> operator/(Vec<T>&& v1, Vec<T>&& v2)
+template<typename T, typename U>
+inline Vec<T> operator/(Vec<T>&& v1, Vec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1/=v2; return std::move(v1);}
 
-template<typename T>
-inline NVec<T> operator/(const NVec<T>& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator/(const NVec<T>& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); NVec<T> result=v1; result/=v2; return result;}
-template<typename T>
-inline NVec<T> operator/(const NVec<T>& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator/(const NVec<U>& v1, NVec<T>&& v2)
 {
     if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch");
     size_t n=std::min(v1.data.size(),v2.data.size()); for (size_t i=0; i<n; ++i) v2.data[i]=v1.data[i]/v2.data[i]; return std::move(v2);
 }
-template<typename T>
-inline NVec<T> operator/(NVec<T>&& v1, const NVec<T>& v2)
+template<typename T, typename U>
+inline NVec<T> operator/(NVec<T>&& v1, const NVec<U>& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1/=v2; return std::move(v1);}
-template<typename T>
-inline NVec<T> operator/(NVec<T>&& v1, NVec<T>&& v2)
+template<typename T, typename U>
+inline NVec<T> operator/(NVec<T>&& v1, NVec<U>&& v2)
 {if (v1.data.size()!=v2.data.size()) throw std::runtime_error("Vector size mismatch"); v1/=v2; return std::move(v1);}
 
 
@@ -1368,30 +1503,30 @@ inline NVec<T> operator/(NVec<T>&& v1, NVec<T>&& v2)
  *                                                                                              *
  ************************************************************************************************/
 
-template<typename T>
-inline Matrix<T> operator+(const Matrix<T>& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator+(const Matrix<T>& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); Matrix<T> result=m1; result+=m2; return result;}
-template<typename T>
-inline Matrix<T> operator+(const Matrix<T>& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator+(const Matrix<T>& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m2+=m1; return std::move(m2);}
-template<typename T>
-inline Matrix<T> operator+(Matrix<T>&& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator+(Matrix<T>&& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1+=m2; return std::move(m1);}
-template<typename T>
-inline Matrix<T> operator+(Matrix<T>&& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator+(Matrix<T>&& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1+=m2; return std::move(m1);}
 
-template<typename T>
-inline NMatrix<T> operator+(const NMatrix<T>& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator+(const NMatrix<T>& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); NMatrix<T> result=m1; result+=m2; return result;}
-template<typename T>
-inline NMatrix<T> operator+(const NMatrix<T>& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator+(const NMatrix<T>& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m2+=m1; return std::move(m2);}
-template<typename T>
-inline NMatrix<T> operator+(NMatrix<T>&& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator+(NMatrix<T>&& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1+=m2; return std::move(m1);}
-template<typename T>
-inline NMatrix<T> operator+(NMatrix<T>&& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator+(NMatrix<T>&& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1+=m2; return std::move(m1);}
 
 // m1 - m2
@@ -1413,38 +1548,38 @@ inline NMatrix<T> operator+(NMatrix<T>&& m1, NMatrix<T>&& m2)
  *                                                                                              *
  ************************************************************************************************/
 
-template<typename T>
-inline Matrix<T> operator-(const Matrix<T>& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator-(const Matrix<T>& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); Matrix<T> result=m1; result-=m2; return result;}
-template<typename T>
-inline Matrix<T> operator-(const Matrix<T>& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator-(const Matrix<U>& m1, Matrix<T>&& m2)
 {
     if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch");
     size_t row=std::min(m1.nRows,m2.nRows); size_t col=std::min(m1.nCols,m2.nCols);
     for (size_t r=0; r<row; ++r) for (size_t c=0; c<col; ++c) m2.data[r*m2.nCols+c]=m1.data[r*m1.nCols+c]-m2.data[r*m2.nCols+c];return std::move(m2);
 }
-template<typename T>
-inline Matrix<T> operator-(Matrix<T>&& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator-(Matrix<T>&& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1-=m2; return std::move(m1);}
-template<typename T>
-inline Matrix<T> operator-(Matrix<T>&& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator-(Matrix<T>&& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1-=m2; return std::move(m1);}
 
-template<typename T>
-inline NMatrix<T> operator-(const NMatrix<T>& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator-(const NMatrix<T>& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); NMatrix<T> result=m1; result-=m2; return result;}
-template<typename T>
-inline NMatrix<T> operator-(const NMatrix<T>& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator-(const NMatrix<U>& m1, NMatrix<T>&& m2)
 {
     if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch");
     size_t row=std::min(m1.nRows,m2.nRows); size_t col=std::min(m1.nCols,m2.nCols);
     for (size_t r=0; r<row; ++r) for (size_t c=0; c<col; ++c) m2.data[r*m2.nCols+c]=m1.data[r*m1.nCols+c]-m2.data[r*m2.nCols+c];return std::move(m2);
 }
-template<typename T>
-inline NMatrix<T> operator-(NMatrix<T>&& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator-(NMatrix<T>&& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1-=m2; return std::move(m1);}
-template<typename T>
-inline NMatrix<T> operator-(NMatrix<T>&& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator-(NMatrix<T>&& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1-=m2; return std::move(m1);}
 
 // m1 * m2
@@ -1466,30 +1601,30 @@ inline NMatrix<T> operator-(NMatrix<T>&& m1, NMatrix<T>&& m2)
  *                                                                                              *
  ************************************************************************************************/
 
-template<typename T>
-inline Matrix<T> operator*(const Matrix<T>& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator*(const Matrix<T>& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); Matrix<T> result=m1; result*=m2; return result;}
-template<typename T>
-inline Matrix<T> operator*(const Matrix<T>& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator*(const Matrix<T>& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m2*=m1; return std::move(m2);}
-template<typename T>
-inline Matrix<T> operator*(Matrix<T>&& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator*(Matrix<T>&& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1*=m2; return std::move(m1);}
-template<typename T>
-inline Matrix<T> operator*(Matrix<T>&& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator*(Matrix<T>&& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1*=m2; return std::move(m1);}
 
-template<typename T>
-inline NMatrix<T> operator*(const NMatrix<T>& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator*(const NMatrix<T>& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); NMatrix<T> result=m1; result*=m2; return result;}
-template<typename T>
-inline NMatrix<T> operator*(const NMatrix<T>& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator*(const NMatrix<T>& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m2*=m1; return std::move(m2);}
-template<typename T>
-inline NMatrix<T> operator*(NMatrix<T>&& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator*(NMatrix<T>&& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1*=m2; return std::move(m1);}
-template<typename T>
-inline NMatrix<T> operator*(NMatrix<T>&& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator*(NMatrix<T>&& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1*=m2; return std::move(m1);}
 
 // m1 * m2
@@ -1511,36 +1646,123 @@ inline NMatrix<T> operator*(NMatrix<T>&& m1, NMatrix<T>&& m2)
  *                                                                                              *
  ************************************************************************************************/
 
-template<typename T>
-inline Matrix<T> operator/(const Matrix<T>& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator/(const Matrix<T>& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); Matrix<T> result=m1; result/=m2; return result;}
-template<typename T>
-inline Matrix<T> operator/(const Matrix<T>& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator/(const Matrix<U>& m1, Matrix<T>&& m2)
 {
     if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch");
     size_t row=std::min(m1.nRows,m2.nRows); size_t col=std::min(m1.nCols,m2.nCols);
     for (size_t r=0; r<row; ++r) for (size_t c=0; c<col; ++c) m2.data[r*m2.nCols+c]=m1.data[r*m1.nCols+c]/m2.data[r*m2.nCols+c]; return std::move(m2);
 }
-template<typename T>
-inline Matrix<T> operator/(Matrix<T>&& m1, const Matrix<T>& m2)
+template<typename T, typename U>
+inline Matrix<T> operator/(Matrix<T>&& m1, const Matrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1/=m2; return std::move(m1);}
-template<typename T>
-inline Matrix<T> operator/(Matrix<T>&& m1, Matrix<T>&& m2)
+template<typename T, typename U>
+inline Matrix<T> operator/(Matrix<T>&& m1, Matrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1/=m2; return std::move(m1);}
 
-template<typename T>
-inline NMatrix<T> operator/(const NMatrix<T>& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator/(const NMatrix<T>& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); NMatrix<T> result=m1; result/=m2; return result;}
-template<typename T>
-inline NMatrix<T> operator/(const NMatrix<T>& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator/(const NMatrix<U>& m1, NMatrix<T>&& m2)
 {
     if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch");
     size_t row=std::min(m1.nRows,m2.nRows); size_t col=std::min(m1.nCols,m2.nCols);
     for (size_t r=0; r<row; ++r) for (size_t c=0; c<col; ++c) m2.data[r*m2.nCols+c]=m1.data[r*m1.nCols+c]/m2.data[r*m2.nCols+c]; return std::move(m2);
 }
-template<typename T>
-inline NMatrix<T> operator/(NMatrix<T>&& m1, const NMatrix<T>& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator/(NMatrix<T>&& m1, const NMatrix<U>& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1/=m2; return std::move(m1);}
-template<typename T>
-inline NMatrix<T> operator/(NMatrix<T>&& m1, NMatrix<T>&& m2)
+template<typename T, typename U>
+inline NMatrix<T> operator/(NMatrix<T>&& m1, NMatrix<U>&& m2)
 {if (m1.nRows!=m2.nRows || m1.nCols!=m2.nCols) throw std::runtime_error("Matrix dimension mismatch"); m1/=m2; return std::move(m1);}
+
+// Transpose
+/********************************************************************************************************************************
+ *                                                                                                                              *
+ *    ||||||||||||   |\\\\\\          /\          |\     ||     /||||\     ||||||\        /||||\        /||||\     |||||||||    *
+ *         ||        ||    ||        //\\         |\\    ||    //    \\    ||    \\     ////  \\\\     //    \\    ||     ||    *
+ *         ||        ||    ||       //  \\        ||\\   ||   ||      ||   ||     ||   ///      \\\   ||      ||   ||           *
+ *         ||        |//////       //    \\       || \\  ||    \\\\        ||    //    ||        ||    \\\\        ||\\\\       *
+ *         ||        |\\\         /||||||||\      ||  \\ ||       \\\\\    ||||||/     ||        ||       \\\\\    ||////       *
+ *         ||        || \\       //        \\     ||   \\||   ||      ||   ||          \\\      ///   ||      ||   ||           *
+ *         ||        ||  \\     //          \\    ||    \\|    \\    //    ||           \\\\  ////     \\    //    ||     ||    *
+ *         ||        ||   \\   //            \\   ||     \|     \||||/     ||             \||||/        \||||/     |||||||||    *
+ *                                                                                                                              *
+ ********************************************************************************************************************************/
+
+inline Matrix<T> Transpose(const Matrix<T>& m)
+{
+    if (m.nRows==0 || m.nCols==0) {Matrix<T> result=m; return result;}
+    else if (m.nRows==1 || m.nCols==1) {Matrix<T> result=m; std::swap(result.nRows,result.nCols); return result;}
+    else if (m.nCols==m.nRows)
+    {
+        Matrix<T> result = m;
+        for (size_t r=0; r<m.nRows; ++r)
+            for (size_t c=r+1; c<m.nCols; ++c)
+                std::swap(result.data[r*m.nCols+c],result.data[c*m.nRows+r]);
+        return result;
+    }
+    else
+    {
+        Matrix<T> result(m.nCols,m.nRows,T{});
+        constexpr size_t BLOCKSIZE = 32;
+        for (size_t r0=0; r0<m.nRows; r0+=BLOCKSIZE)
+        {
+            for (size_t c0=0; c0<m.nCols; c0+=BLOCKSIZE)
+            {
+                size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
+                size_t cMax = std::min(c0+BLOCKSIZE,m.nCols);
+                for (size_t r=r0; r<rMax; ++r)
+                    for (size_t c=c0; c<cMax; ++c)
+                        result.data[c*m.nRows+r] = m.data[r*m.nCols+c];
+            }
+        }
+        return result;
+    }
+}
+
+inline Matrix<T> Transpose(Matrix<T>&& m)
+{
+    m.Transpose(); return std::move(m);
+}
+
+
+inline NMatrix<T> Transpose(const NMatrix<T>& m)
+{
+    if (m.nRows==0 || m.nCols==0) {NMatrix<T> result=m; return result;}
+    else if (m.nRows==1 || m.nCols==1) {NMatrix<T> result=m; std::swap(result.nRows,result.nCols); return result;}
+    else if (m.nCols==m.nRows)
+    {
+        NMatrix<T> result = m;
+        for (size_t r=0; r<m.nRows; ++r)
+            for (size_t c=r+1; c<m.nCols; ++c)
+                std::swap(result.data[r*m.nCols+c],result.data[c*m.nRows+r]);
+        return result;
+    }
+    else
+    {
+        NMatrix<T> result(m.nCols,m.nRows,T{});
+        constexpr size_t BLOCKSIZE = 32;
+        for (size_t r0=0; r0<m.nRows; r0+=BLOCKSIZE)
+        {
+            for (size_t c0=0; c0<m.nCols; c0+=BLOCKSIZE)
+            {
+                size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
+                size_t cMax = std::min(c0+BLOCKSIZE,m.nCols);
+                for (size_t r=r0; r<rMax; ++r)
+                    for (size_t c=c0; c<cMax; ++c)
+                        result.data[c*m.nRows+r] = m.data[r*m.nCols+c];
+            }
+        }
+        return result;
+    }
+}
+
+inline NMatrix<T> Transpose(NMatrix<T>&& m)
+{
+    m.Transpose(); return std::move(m);
+}
