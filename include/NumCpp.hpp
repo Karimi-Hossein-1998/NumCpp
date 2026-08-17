@@ -13,26 +13,32 @@
  *                                   \\\\\\\\\     /////////\\\\\\\\\     /////////                                   *
  *                                    \\\\\\\\\\  //////////\\\\\\\\\\  //////////                                    *
  *                                     \\\\\\\\\\X/////////  \\\\\\\\\X//////////                                     *
- *                                      \\\\\\\\XXXX//////    \\\\\\XXXX////////                                      *
- *                                       \\\\\\XXXXXXX///      \\\XXXXXXX//////                                       *
- *                                        \\\\XXXXXXXXXX        XXXXXXXXXX////                                        *
- *                                         \\XXXXXXXXXX\\\    ///XXXXXXXXXX//                                         *
- *                                          XXXXXXXXXX\\\\\\//////XXXXXXXXXX                                          *
- *                                         //XXXXXXXX\\\\\XXXX/////XXXXXXXX\\                                         *
- *                                        ////XXXXXX\\\\XXXXXXXX////XXXXXX\\\\                                        *
- *                                       //////XXXX\\\XXXXXXXXXXXX///XXXX\\\\\\                                       *
- *                                      ////////XX\\XXXXXXXXXXXXXXXX//XX\\\\\\\\                                      *
- *                                     //////////\XXXXXXXXXXXXXXXXXXXX/\\\\\\\\\\                                     *
- *                                    //////////  \\XXXXXXXXXXXXXXXX//  \\\\\\\\\\                                    *
- *                                   //////////    \\\XXXXXXXXXXXX///    \\\\\\\\\\                                   *
- *                                  //////////      \\\\XXXXXXXX////      \\\\\\\\\\                                  *
- *                                 //////////        \\\\\XXXX/////        \\\\\\\\\\                                 *
- *                                //////////          \\\\\\//////          \\\\\\\\\\                                *
- *                               //////////            \\\\\/////            \\\\\\\\\\                               *
- *                              //////////              \\\\////              \\\\\\\\\\                              *
- *                             //////////                \\\///                \\\\\\\\\\                             *
- *                            //////////                  \\//                  \\\\\\\\\\                            *
- *                           //////////                    \/                    \\\\\\\\\\                           *
+ *                                      \\\\\\\\XXX///////    \\\\\\\XXX////////                                      *
+ *                                       \\\\\\XXXXX/////      \\\\\XXXXX//////                                       *
+ *                                        \\\\XXXXXXX///        \\\XXXXXXX////                                        *
+ *                                         \\XXXXXXXXX/          \XXXXXXXXX//                                         *
+ *                                          XXXXXXXXXX\          /XXXXXXXXXX                                          *
+ *                                         //XXXXXXXX\\\        ///XXXXXXXX\\                                         *
+ *                                        ////XXXXXX\\\\\      /////XXXXXX\\\\                                        *
+ *                                       //////XXXX\\\\\\\    ///////XXXX\\\\\\                                       *
+ *                                      ////////XX\\\\\\\\\  /////////XX\\\\\\\\                                      *
+ *                                     //////////\\\\\\\\\\\///////////\\\\\\\\\\                                     *
+ *                                    //////////  \\\\\\\\\XX/////////  \\\\\\\\\\                                    *
+ *                                   //////////    \\\\\\\XXXX///////    \\\\\\\\\\                                   *
+ *                                  //////////      \\\\\XXXXXX/////      \\\\\\\\\\                                  *
+ *                                 //////////        \\\XXXXXXXX///        \\\\\\\\\\                                 *
+ *                                //////////          \XXXXXXXXXX/          \\\\\\\\\\                                *
+ *                               //////////           /XXXXXXXXXX\           \\\\\\\\\\                               *
+ *                              //////////           ///XXXXXXXX\\\           \\\\\\\\\\                              *
+ *                             //////////           /////XXXXXX\\\\\           \\\\\\\\\\                             *
+ *                            //////////           ///////XXXX\\\\\\\           \\\\\\\\\\                            *
+ *                           //////////           /////////XX\\\\\\\\\           \\\\\\\\\\                           *
+ *                          //////////x          ///////////\\\\\\\\\\\          x\\\\\\\\\\                          *
+ *                         //////////x\\        ///////////  \\\\\\\\\\\        //x\\\\\\\\\\                         *
+ *                        //////////x\\\\      ///////////    \\\\\\\\\\\      ////x\\\\\\\\\\                        *
+ *                       //////////x\\\\\\    ///////////      \\\\\\\\\\\    //////x\\\\\\\\\\                       *
+ *                      //////////x\\\\\\\\  ///////////        \\\\\\\\\\\  ////////x\\\\\\\\\\                      *
+ *                     //////////x\\\\\\\\\\///////////          \\\\\\\\\\\//////////x\\\\\\\\\\                     *
  *                                                                                                                    *
  *                                                                                                                    *
  **********************************************************************************************************************/
@@ -94,7 +100,9 @@ struct Vec
     Vec(const RowProxy& r) : data(r.rowPtr,r.rowPtr+r.nCols) {}
     explicit Vec (size_t n, T initVal = T{}) : data(n,initVal) {}
 	Vec(std::initializer_list<T> list) : data(list) {}
-    [[nodiscard]] size_t size() const noexcept {return data.size();}
+	Vec (const std::vector<T>& v) : data(v) {}
+	Vec (std::vector<T>&& v) : data(std::move(v)) {}
+	[[nodiscard]] size_t size() const noexcept {return data.size();}
     [[nodiscard]] bool empty() const noexcept {return data.empty();}
     [[nodiscard]] T* ptr() noexcept {return data.data();}
     [[nodiscard]] const T* ptr() const noexcept {return data.data();}
@@ -219,7 +227,37 @@ struct Matrix
         for (const auto& list : lists)
         {
             data.insert(data.end(),list.begin(),list.end());
-            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),static_cast<T>(0));
+            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
+        }
+    }
+    Matrix (const std::vector<std::vector<T>>& m)
+    {
+        nRows = m.size();
+        nCols = (nRows>0)?m[0].size():0;
+        for (const auto& row : m)
+        {
+            nCols = std::max(nCols,row.size());
+        }
+        data.reserve(nRows*nCols);
+        for (const auto& row : m)
+        {
+            data.insert(data.end(),row.begin(),row.end());
+            if (row.size()<nCols) data.insert(data.end(),nCols-row.size(),T{});
+        }
+    }
+    Matrix (std::vector<std::vector<T>>&& m)
+    {
+        nRows = m.size();
+        nCols = (nRows>0)?m[0].size():0;
+        for (const auto& row : m)
+        {
+            nCols = std::max(nCols,row.size());
+        }
+        data.reserve(nRows*nCols);
+        for (const auto& row : m)
+        {
+            data.insert(data.end(),std::make_move_iterator(row.begin()),std::make_move_iterator(row.end()));
+            if (row.size()<nCols) data.insert(data.end(),nCols-row.size(),T{});
         }
     }
     [[nodiscard]] size_t rows() const noexcept {return nRows;}
@@ -321,7 +359,7 @@ struct Matrix
         for (const auto& list : lists)
         {
             data.insert(data.end(),list.begin(),list.end());
-            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),static_cast<T>(0));
+            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
         }
         return *this;
     }
@@ -350,6 +388,30 @@ struct Matrix
             }
             (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " },\n";
         }
+    }
+    [[nodiscard]] static Matrix<T> Zeros(size_t row, size_t col=0)
+    {
+        if (col==0) return Matrix(row,row,T{});
+        else return Matrix(row,col,T{});
+    }
+    [[nodiscard]] static Matrix<T> Ones(size_t row, size_t col=0)
+    {
+        if (col==0) return Matrix(row,row,static_cast<T>(1));
+        else return Matrix(row,col,static_cast<T>(1));
+    }
+    [[nodiscard]] static Matrix<T> Eye(size_t row, size_t col=0)
+    {
+        Matrix<T> result = Matrix<T>::Ones(row,col);
+        size_t count = std::min(row,result.nCols);
+        for (size_t i=0; i<count; ++i) result.data[i*result.nCols+i]=T{};
+        return result;
+    }
+    [[nodiscard]] static Matrix<T> Identity(size_t row, size_t col=0)
+    {
+        Matrix<T> result = Matrix<T>::Zeros(row,col);
+        size_t count = std::min(row,result.nCols);
+        for (size_t i=0; i<count; ++i) result.data[i*result.nCols+i]=static_cast<T>(1);
+        return result;
     }
     // APPEND/EXTEND
     inline void append_rows(const T& value) {if (nCols==0) return; data.insert(data.end(),nCols,value);nRows+=1;}
@@ -546,9 +608,9 @@ struct Matrix
             constexpr size_t BLOCKSIZE = 32;
             for (size_t r0=0; r0<nRows; r0+=BLOCKSIZE)
             {
+                size_t rMax = std::min(r0+BLOCKSIZE,nRows);
                 for (size_t c0=0; c0<nCols; c0+=BLOCKSIZE)
                 {
-                    size_t rMax = std::min(r0+BLOCKSIZE,nRows);
                     size_t cMax = std::min(c0+BLOCKSIZE,nCols);
                     for (size_t r=r0; r<rMax; ++r)
                         for (size_t c=c0; c<cMax; ++c)
@@ -591,6 +653,8 @@ struct NVec
     NVec (const RowProxy& r) : data(r.rowPtr,r.rowPtr+r.nCols) {}
     explicit NVec (size_t n, T initVal = T{}) : data(n,initVal) {}
     NVec (std::initializer_list<T> list) : data(list) {}
+    NVec (const std::vector<T>& v) : data(v) {}
+    NVec (std::vector<T>&& v) : data(std::move(v)) {}
     [[nodiscard]] size_t size() const noexcept {return data.size();}
     [[nodiscard]] bool empty() const noexcept {return data.empty();}
     [[nodiscard]] T* ptr() noexcept {return data.data();}
@@ -734,7 +798,37 @@ struct NMatrix
         for (const auto& list : lists)
         {
             data.insert(data.end(),list.begin(),list.end());
-            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),static_cast<T>(0));
+            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
+        }
+    }
+    NMatrix (const std::vector<std::vector<T>>& m)
+    {
+        nRows = m.size();
+        nCols = (nRows>0)?m[0].size():0;
+        for (const auto& row : m)
+        {
+            nCols = std::max(nCols,row.size());
+        }
+        data.reserve(nRows*nCols);
+        for (const auto& row : m)
+        {
+            data.insert(data.end(),row.begin(),row.end());
+            if (row.size()<nCols) data.insert(data.end(),nCols-row.size(),T{});
+        }
+    }
+    NMatrix (std::vector<std::vector<T>>&& m)
+    {
+        nRows = m.size();
+        nCols = (nRows>0)?m[0].size():0;
+        for (const auto& row : m)
+        {
+            nCols = std::max(nCols,row.size());
+        }
+        data.reserve(nRows*nCols);
+        for (const auto& row : m)
+        {
+            data.insert(data.end(),std::make_move_iterator(row.begin()),std::make_move_iterator(row.end()));
+            if (row.size()<nCols) data.insert(data.end(),nCols-row.size(),T{});
         }
     }
     [[nodiscard]] size_t rows() const noexcept {return nRows;}
@@ -866,7 +960,7 @@ struct NMatrix
         for (const auto& list : lists)
         {
             data.insert(data.end(),list.begin(),list.end());
-            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),static_cast<T>(0));
+            if (list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
         }
         return *this;
     }
@@ -915,6 +1009,30 @@ struct NMatrix
             }
             (r==(nRows-1))?std::cout << data[r*nCols+nCols-1] << " } }\n":std::cout << data[r*nCols+nCols-1] << " },\n";
         }
+    }
+    [[nodiscard]] static NMatrix<T> Zeros(size_t row, size_t col=0)
+    {
+        if (col==0) return NMatrix(row,row,T{});
+        else return NMatrix(row,col,T{});
+    }
+    [[nodiscard]] static NMatrix<T> Ones(size_t row, size_t col=0)
+    {
+        if (col==0) return NMatrix(row,row,static_cast<T>(1));
+        else return NMatrix(row,col,static_cast<T>(1));
+    }
+    [[nodiscard]] static NMatrix<T> Eye(size_t row, size_t col=0)
+    {
+        NMatrix<T> result = NMatrix<T>::Ones(row,col);
+        size_t count = std::min(row,result.nCols);
+        for (size_t i=0; i<count; ++i) result.data[i*result.nCols+i]=T{};
+        return result;
+    }
+    [[nodiscard]] static NMatrix<T> Identity(size_t row, size_t col=0)
+    {
+        NMatrix<T> result = NMatrix<T>::Zeros(row,col);
+        size_t count = std::min(row,result.nCols);
+        for (size_t i=0; i<count; ++i) result.data[i*result.nCols+i]=static_cast<T>(1);
+        return result;
     }
     // SLICE
     inline NMatrix<T> operator[](Slice rs, Slice cs) const noexcept
@@ -1125,9 +1243,9 @@ struct NMatrix
             constexpr size_t BLOCKSIZE = 32;
             for (size_t r0=0; r0<nRows; r0+=BLOCKSIZE)
             {
+                size_t rMax = std::min(r0+BLOCKSIZE,nRows);
                 for (size_t c0=0; c0<nCols; c0+=BLOCKSIZE)
                 {
-                    size_t rMax = std::min(r0+BLOCKSIZE,nRows);
                     size_t cMax = std::min(c0+BLOCKSIZE,nCols);
                     for (size_t r=r0; r<rMax; ++r)
                         for (size_t c=c0; c<cMax; ++c)
@@ -1694,6 +1812,7 @@ inline NMatrix<T> operator/(NMatrix<T>&& m1, NMatrix<U>&& m2)
  *                                                                                                                              *
  ********************************************************************************************************************************/
 
+template<typename T>
 inline Matrix<T> Transpose(const Matrix<T>& m)
 {
     if (m.nRows==0 || m.nCols==0) {Matrix<T> result=m; return result;}
@@ -1712,9 +1831,9 @@ inline Matrix<T> Transpose(const Matrix<T>& m)
         constexpr size_t BLOCKSIZE = 32;
         for (size_t r0=0; r0<m.nRows; r0+=BLOCKSIZE)
         {
+            size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
             for (size_t c0=0; c0<m.nCols; c0+=BLOCKSIZE)
             {
-                size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
                 size_t cMax = std::min(c0+BLOCKSIZE,m.nCols);
                 for (size_t r=r0; r<rMax; ++r)
                     for (size_t c=c0; c<cMax; ++c)
@@ -1725,12 +1844,14 @@ inline Matrix<T> Transpose(const Matrix<T>& m)
     }
 }
 
+template<typename T>
 inline Matrix<T> Transpose(Matrix<T>&& m)
 {
     m.Transpose(); return std::move(m);
 }
 
 
+template<typename T>
 inline NMatrix<T> Transpose(const NMatrix<T>& m)
 {
     if (m.nRows==0 || m.nCols==0) {NMatrix<T> result=m; return result;}
@@ -1749,9 +1870,9 @@ inline NMatrix<T> Transpose(const NMatrix<T>& m)
         constexpr size_t BLOCKSIZE = 32;
         for (size_t r0=0; r0<m.nRows; r0+=BLOCKSIZE)
         {
+            size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
             for (size_t c0=0; c0<m.nCols; c0+=BLOCKSIZE)
             {
-                size_t rMax = std::min(r0+BLOCKSIZE,m.nRows);
                 size_t cMax = std::min(c0+BLOCKSIZE,m.nCols);
                 for (size_t r=r0; r<rMax; ++r)
                     for (size_t c=c0; c<cMax; ++c)
@@ -1762,6 +1883,7 @@ inline NMatrix<T> Transpose(const NMatrix<T>& m)
     }
 }
 
+template<typename T>
 inline NMatrix<T> Transpose(NMatrix<T>&& m)
 {
     m.Transpose(); return std::move(m);

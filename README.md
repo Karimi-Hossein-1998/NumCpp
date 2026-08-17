@@ -9,5 +9,6 @@ This is an attempt to recreate numpy style vectors and matrices.
 - [x] Added *NumPy* style **indexing** to `NVec` and `NMatrix`.
 - [x] Added *NumPy* style **slicing** to `NMatrix`.
 - [x] Added *matrix transpose methods*.
+- [x] Added *Zeros*, *Ones*, *Identity*, *Eyes* (*Ones-Identity*).
 
 Feel free to contact me with any *improvement/feature addition* idea or *critiques*.

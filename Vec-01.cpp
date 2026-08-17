@@ -3,7 +3,7 @@
 
 int main()
 {
-    Vec v1 = {0.1,0.1,0.2,0.3,0.5,0.8,1.3,2.1};v1+=1.0;
+    Vec v1 = {1.1,1.1,2.2,3.3,5.5,8.8,14.3,23.1};//v1+=1.27;
     Vec<int> v2 = {1,1,2,3,5,8,13,21};
     Vec v3 = v1+v2;
     std::cout << "V3 = V1+V2\n"; v3.printv();
@@ -27,5 +27,7 @@ int main()
     std::cout << "V2 . V1 = " << dot2Product1 << '\n';
     auto dot3Product5 = v3.dot(v5);
     std::cout << "V3 . V5 = " << dot3Product5 << '\n';
+    Matrix<double> m1 = matmul(v1,v2);
+    std::cout << "M1 = matmul(V1,V2)\n"; m1.printm();
     return 0;
 }
