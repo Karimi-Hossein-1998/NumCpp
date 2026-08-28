@@ -11,8 +11,9 @@ This is an attempt to recreate numpy style vectors and matrices. I'll use a flat
 - [x] Added arithmetics (+,-,*,/) with a *number* and other *Matrix*.
 - [x] Added `AppendRows` and `AppendCols` to expand *Matrices*. Also added `JoinVertical` and `JoinHorizontal` to join to *Matrices*.
 - [x] Added `ApplyFunc` to *apply* any function (lambda) to a *Matrix* in a vectorized way, element-wise.
-- [] Need to add Matrix operations (Matrix multiplications, Trace, Determinant, Factorizations, etc.)
-- [] Need to add *rvalue* overloads for some functionalities.
+- [x] Added `abs`, `sqrt`, and `power` and some *trig* functions for element-wise application.
+- [x] Added *rvalue* overloads for some functionalities.
+- [ ] Need to add Matrix operations (Matrix multiplications, Trace, Determinant, Factorizations, etc.)
 
 **NOTE:** Use `-std=c++23` and link with *TBB* library (`-ltbb`) to compile.
 

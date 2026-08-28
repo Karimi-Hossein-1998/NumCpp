@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include <span>
+#include <cmath>
 
 static constexpr const size_t BLOCKSIZE = 32; // Side length of the square block of matrix (contiguous memory chunck of BLOCKSIZE*BLOCKSIZE size) to try and make operation cache-friendly!
 
@@ -76,7 +77,6 @@ class Matrix
 {
 	private:
         std::vector<T> data {};
-        std::span<T>   spanData {data};
         std::uint64_t  nRows{};
         std::uint64_t  nCols{};
 
@@ -256,29 +256,22 @@ class Matrix
         inline std::span<T> operator[](std::uint64_t i)
         {
             if (i>=nRows) throw std::runtime_error(std::to_string(i)+" is out of bound");
-            return spanData.subspan(i*nCols,nCols);
+            std::span<T> spanData {data}; return spanData.subspan(i*nCols,nCols);
         }
         inline std::span<const T> operator[](std::uint64_t i) const
         {
             if (i>=nRows) throw std::runtime_error(std::to_string(i)+" is out of bound");
-            return spanData.subspan(i*nCols,nCols);
+            std::span<T> spanData {data}; return spanData.subspan(i*nCols,nCols);
         }
         // Slice and Dice
         inline Matrix operator[](Slice rs, Slice cs) const
         {
-            if (rs.Start() < 0 || rs.Start() > static_cast<std::int64_t>(nRows-1) ||
-                rs.Stop() < -1 || rs.Stop() > static_cast<std::int64_t>(nRows) ||
-                cs.Start() < 0 || cs.Start() > static_cast<std::int64_t>(nCols-1) ||
-                cs.Stop() < -1 || cs.Stop() > static_cast<std::int64_t>(nCols))
-        	{throw std::runtime_error("Index out of bounds");}
-            Matrix sliced(rs.Size(),cs.Size(),T{});
+            if (rs.Start() < 0 || rs.Start() > static_cast<std::int64_t>(nRows-1) || rs.Stop() < -1 || rs.Stop() > static_cast<std::int64_t>(nRows) ||
+                cs.Start() < 0 || cs.Start() > static_cast<std::int64_t>(nCols-1) || cs.Stop() < -1 || cs.Stop() > static_cast<std::int64_t>(nCols))
+        	{throw std::runtime_error("Index out of bounds");} Matrix<T> sliced(rs.Size(),cs.Size(),T{});
             for (std::uint64_t i{}; i<rs.Size(); ++i)
-            {
                 for (std::uint64_t j{}; j<cs.Size(); ++j)
-                {
                     sliced[i,j] = data[rs[i]*nCols+cs[j]];
-                }
-            }
             return sliced;
         }
 
@@ -295,34 +288,20 @@ class Matrix
          *                   *
          *********************/
         // Matrix(i,j)
-        inline T& operator()(std::int64_t i, std::int64_t j)
-        {
-            return data[wrap_index(i,nRows)*nCols+wrap_index(j,nCols)];
-        }
-        inline const T& operator()(std::int64_t i, std::int64_t j) const
-        {
-            return data[wrap_index(i,nRows)*nCols+wrap_index(j,nCols)];
-        }
+        inline T& operator()(std::int64_t i, std::int64_t j) {return data[wrap_index(i,nRows)*nCols+wrap_index(j,nCols)];}
+        inline const T& operator()(std::int64_t i, std::int64_t j) const {return data[wrap_index(i,nRows)*nCols+wrap_index(j,nCols)];}
         // Matrix(i)
         inline std::span<T> operator()(std::int64_t i)
-        {
-            return spanData.subspan(wrap_index(i, nRows)*nCols,nCols);
-        }
+        {std::span<T> spanData {data};return spanData.subspan(wrap_index(i, nRows)*nCols,nCols);}
         inline std::span<const T> operator()(std::int64_t i) const
-        {
-            return spanData.subspan(wrap_index(i, nRows)*nCols,nCols);
-        }
+        {std::span<T> spanData {data};return spanData.subspan(wrap_index(i, nRows)*nCols,nCols);}
         // Slice and Dice
         inline Matrix operator()(Slice rs, Slice cs) const noexcept
         {
-            Matrix sliced(rs.Size(),cs.Size(),T{});
+            Matrix<T> sliced(rs.Size(),cs.Size(),T{});
             for (std::uint64_t i{}; i<rs.Size(); ++i)
-            {
                 for (std::uint64_t j{}; j<cs.Size(); ++j)
-                {
                     sliced[i,j] = data[wrap_index(rs[i],nRows)*nCols+wrap_index(cs[j],nCols)];
-                }
-            }
             return sliced;
         }
 
@@ -361,9 +340,9 @@ class Matrix
         inline Matrix operator*(U value) const {Matrix<T> m=(*this); return m*=value;}
         // / (Divide)
         template <Number U>
-        inline Matrix& operator/=(U value) {for (std::uint64_t i{}; i<data.size(); ++i) data[i] += value; return *this;}
+        inline Matrix& operator/=(U value) {for (std::uint64_t i{}; i<data.size(); ++i) data[i] /= value; return *this;}
         template <Number U>
-        inline Matrix operator/(U value) const {Matrix<T> m=(*this); return m+=value;}
+        inline Matrix operator/(U value) const {Matrix<T> m=(*this); return m/=value;}
 
         // Matrix Matrix arithmetics
         // + (Plus)
@@ -531,10 +510,46 @@ class Matrix
          *         ///   |_____________|         ///   *
          *                                             *
          ***********************************************/
+        // Apply Function
         template <typename Func>
-        inline Matrix& ApplyFunc(Func&& f, bool parallel=false);
-		template <Number U, typename Func>
-        inline friend Matrix<U> ApplyFunc(const Matrix<U>& m, Func&& f, bool parallel);
+        inline Matrix& ApplyFunc(Func&& f, bool parallel=false)
+        {
+            if (nRows==0 || nCols==0) return *this;
+            if (!parallel) {std::transform(std::execution::unseq,data.begin(),data.end(),data.begin(),std::forward<Func>(f)); return *this;}
+            else {std::transform(std::execution::par_unseq,data.begin(),data.end(),data.begin(),std::forward<Func>(f)); return *this;}
+        }
+		template <typename Func>
+        inline friend Matrix<T> ApplyFunc(const Matrix<T>& m, Func&& f, bool parallel=false)
+        {
+            Matrix<T> result(m.nRows,m.nCols); if (m.nRows==0 || m.nCols==0) return result;
+            if (!parallel) {std::transform(std::execution::unseq,m.data.cbegin(),m.data.cend(),result.data.begin(),std::forward<Func>(f)); return result;}
+            else {std::transform(std::execution::par_unseq,m.data.cbegin(),m.data.cend(),result.data.begin(),std::forward<Func>(f)); return result;}
+        }
+        template <typename Func>
+        inline friend Matrix<T> ApplyFunc(Matrix<T>&& m, Func&& f, bool parallel = false) {return m.ApplyFunc(f,parallel);}
+        // abs
+        [[nodiscard]] inline Matrix& abs(bool parallel=false) {return (*this).ApplyFunc([](T x)->T{return std::abs(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> abs(const Matrix<T>& m, bool parallel = false) {Matrix<T> result(m); return result.ApplyFunc([](T x)->T{return std::abs(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> abs(Matrix<T>&& m, bool parallel = false) {return m.abs(parallel);}
+        // power
+        template <Number U>
+        [[nodiscard]] inline Matrix& power(U exponent,bool parallel=false) {return (*this).ApplyFunc([exponent](T x)->T{return std::pow(x,exponent);},parallel);}
+        template <Number U>
+        [[nodiscard]] inline friend Matrix<T> power(const Matrix<T>& m, U exponent, bool parallel = false) {Matrix<T> result(m); return result.ApplyFunc([exponent](T x)->T{return std::pow(x,exponent);},parallel);}
+        template <Number U>
+        [[nodiscard]] inline friend Matrix<T> power(Matrix<T>&& m, U exponent, bool parallel = false) {return m.power(exponent,parallel);}
+        // sqrt
+        [[nodiscard]] inline Matrix& sqrt(bool parallel=false) {return (*this).ApplyFunc([](T x)->T{return std::sqrt(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> sqrt(const Matrix<T>& m, bool parallel = false) {Matrix<T> result(m); return result.ApplyFunc([](T x)->T{return std::sqrt(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> sqrt(Matrix<T>&& m, bool parallel = false) {return m.sqrt(parallel);}
+        // sin
+        [[nodiscard]] inline Matrix& sin(bool parallel=false) {return (*this).ApplyFunc([](T x)->T{return std::sin(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> sin(const Matrix<T>& m, bool parallel = false) {Matrix<T> result(m); return result.ApplyFunc([](T x)->T{return std::sin(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> sin(Matrix<T>&& m, bool parallel = false) {return m.sin(parallel);}
+        // cos
+        [[nodiscard]] inline Matrix& cos(bool parallel=false) {return (*this).ApplyFunc([](T x)->T{return std::cos(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> cos(const Matrix<T>& m, bool parallel = false) {Matrix<T> result(m); return result.ApplyFunc([](T x)->T{return std::cos(x);},parallel);}
+        [[nodiscard]] inline friend Matrix<T> cos(Matrix<T>&& m, bool parallel = false) {return m.cos(parallel);}
 };
 
 /*****************************
@@ -915,33 +930,3 @@ inline void Matrix<T>::printm(std::uint16_t width, std::uint16_t accuracy)
         }
     }
 }
-
-template <Number T> template <typename Func>
-inline Matrix<T>& Matrix<T>::ApplyFunc(Func&& f, bool parallel)
-{
-    if (nRows==0 || nCols==0) return *this;
-    if (!parallel)
-    {
-        std::transform(std::execution::unseq,data.begin(),data.end(),data.begin(),std::forward<Func>(f)); return *this;
-    }
-    else
-    {
-        std::transform(std::execution::par_unseq,data.begin(),data.end(),data.begin(),std::forward<Func>(f)); return *this;
-    }
-}
-
-template <Number U, typename Func>
-inline Matrix<U> ApplyFunc(const Matrix<U>& m, Func&& f, bool parallel)
-{
-    if (m.nRows==0 || m.nCols==0) return Matrix<U>(m.nRows,m.nCols);
-    Matrix<U> result(m.nRows,m.nCols);
-    if (!parallel)
-    {
-        std::transform(std::execution::unseq,m.data.cbegin(),m.data.cend(),result.data.begin(),std::forward<Func>(f)); return result;
-    }
-    else
-    {
-        std::transform(std::execution::par_unseq,m.data.cbegin(),m.data.cend(),result.data.begin(),std::forward<Func>(f)); return result;
-    }
-}
-
