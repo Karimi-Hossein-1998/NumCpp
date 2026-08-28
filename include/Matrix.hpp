@@ -1,3 +1,4 @@
+#pragma once
 #include <cstddef>
 #include <algorithm>
 #include <initializer_list>
