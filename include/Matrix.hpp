@@ -14,11 +14,30 @@
 #include <stdexcept>
 #include <span>
 #include <cmath>
+#include <complex>
 
 static constexpr const size_t BLOCKSIZE = 32; // Side length of the square block of matrix (contiguous memory chunck of BLOCKSIZE*BLOCKSIZE size) to try and make operation cache-friendly!
 
+// complex type
 template <typename T>
-concept Number = std::is_arithmetic_v<T>;
+struct is_complex : std::false_type {};
+template <typename T>
+struct is_complex<std::complex<T>> : std::true_type {};
+template <typename T>
+inline constexpr bool is_complex_v = is_complex<T>::value;
+
+template <typename T>
+concept Complex = is_complex_v<T>;
+template <typename T>
+concept FPComplex = is_complex_v<T> && std::floating_point<typename T::value_type>;
+template <typename T>
+concept Real = std::is_arithmetic_v<T>;
+template <typename T>
+concept FPReal = std::floating_point<T>;
+template <typename T>
+concept Number = Real<T> || Complex<T>;
+template <typename T>
+concept FPNumber = FPReal<T> || FPComplex<T>;
 
 template <typename R>
 concept Range2D = std::ranges::forward_range<R> && std::ranges::forward_range<std::ranges::range_reference_t<R>>;
@@ -122,14 +141,17 @@ class Matrix
         Matrix(std::initializer_list<std::initializer_list<U>> lists)
         {
             nRows = lists.size();
-            if (nRows==0) {nCols=0; data({}); return;}
-            nCols = 0; for (auto& list : lists) nCols = std::max(list.size(),nCols);
-            data.reserve(nRows*nCols);
-            for (auto& list : lists)
+            if (nRows==0) nCols=0;
+            else
             {
-                data.insert(data.end(),list.begin(),list.end());
-                if(list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
-            }
+				 nCols = 0; for (auto& list : lists) nCols = std::max(list.size(),nCols);
+				 data.reserve(nRows*nCols);
+				 for (auto& list : lists)
+				 {
+				     data.insert(data.end(),list.begin(),list.end());
+				     if(list.size()<nCols) data.insert(data.end(),nCols-list.size(),T{});
+				 }
+			}
         }
         // std::vector rvalue
         Matrix(std::vector<T>&& vec, bool h=true) : data(std::move(vec))
@@ -146,14 +168,17 @@ class Matrix
         Matrix(R&& grid)
         {
             nRows = std::ranges::distance(grid);
-            if (nRows==0) {nCols = 0; return;}
-            nCols = 0; for (auto&& row : grid) nCols = std::max<std::uint64_t>(nCols,std::ranges::distance(row));
-            data.reserve(nRows*nCols);
-            for (auto&& row : grid)
+            if (nRows==0) nCols = 0;
+            else
             {
-                data.insert(data.end(),std::ranges::begin(row),std::ranges::end(row));
-                if (std::ranges::distance(row)<nCols) data.insert(data.end(),nCols-std::ranges::distance(row),T{});
-            }
+	            nCols = 0; for (auto&& row : grid) nCols = std::max<std::uint64_t>(nCols,std::ranges::distance(row));
+	            data.reserve(nRows*nCols);
+	            for (auto&& row : grid)
+	            {
+	                data.insert(data.end(),std::ranges::begin(row),std::ranges::end(row));
+	                if (std::ranges::distance(row)<nCols) data.insert(data.end(),nCols-std::ranges::distance(row),T{});
+	            }
+	        }
         }
         /*********************************
          *                               *
@@ -383,6 +408,24 @@ class Matrix
         template <Number U>
         inline Matrix operator/(const Matrix<U>& m) {Matrix<T> nm(*this); return nm/=m;}
 
+		// Row and Column arithmetics
+		template <Number U>
+		inline Matrix& RowPlus(std::uint64_t row, U value) {std::uint64_t start = row*nCols; for (std::uint64_t i{}; i<nCols; ++i) data[start+i] += value; return *this;}
+		template <Number U>
+		inline Matrix& RowMinus(std::uint64_t row, U value) {std::uint64_t start = row*nCols; for (std::uint64_t i{}; i<nCols; ++i) data[start+i] -= value; return *this;}
+		template <Number U>
+		inline Matrix& RowMultiply(std::uint64_t row, U value) {std::uint64_t start = row*nCols; for (std::uint64_t i{}; i<nCols; ++i) data[start+i] *= value; return *this;}
+		template <Number U>
+		inline Matrix& RowDivide(std::uint64_t row, U value) {std::uint64_t start = row*nCols; for (std::uint64_t i{}; i<nCols; ++i) data[start+i] /= value; return *this;}
+		template <Number U>
+		inline Matrix& ColPlus(std::uint64_t col, U value) {for (std::uint64_t i{}; i<nRows; ++i) data[i*nCols+col] += value;}
+		template <Number U>
+		inline Matrix& ColMinus(std::uint64_t col, U value) {for (std::uint64_t i{}; i<nRows; ++i) data[i*nCols+col] -= value; return *this;}
+		template <Number U>
+		inline Matrix& ColMultiply(std::uint64_t col, U value) {for (std::uint64_t i{}; i<nRows; ++i) data[i*nCols+col] *= value; return *this;}
+		template <Number U>
+		inline Matrix& ColDivide(std::uint64_t col, U value) {for (std::uint64_t i{}; i<nRows; ++i) data[i*nCols+col] /= value; return *this;}
+
         /*****************************
          * _________________________ *
          * _________________________ *
@@ -499,7 +542,7 @@ class Matrix
         inline friend Matrix<U> reshape(Matrix<U>&& m, std::int64_t r, std::int64_t c);
         // print
         inline void printm(std::uint16_t width=10, std::uint16_t accuracy=8);
-
+		inline const T Trace() const noexcept;
 
 		/***********************************************
          *                 _____________               *
@@ -930,4 +973,116 @@ inline void Matrix<T>::printm(std::uint16_t width, std::uint16_t accuracy)
             (r==(nRows-1))?std::print("{0:^{1}.{2}g} }} }}\n",data[r*nCols+nCols-1],width,accuracy):std::print("{0:^{1}.{2}g} }},\n",data[r*nCols+nCols-1],width,accuracy);
         }
     }
+}
+
+template <Number T>
+inline const T Matrix<T>::Trace() const noexcept
+{
+	T result{}; if (nRows!=nCols) {std::println("Matrix is not square!"); return result;}
+	for (std::uint64_t i{}; i<nCols; ++i) result += data[i*nCols+i]; return result;
+}
+
+/*********************************
+ *                               *
+ *                 ///|||\\\     9
+ *                /////|\\\\\    9
+ *               ////      \\\   9
+ *    |||||||||||||||            *
+ *               \\\\      ///   *
+ *                \\\\\|/////    *
+ *                 \\\|||///     *
+ *                               *
+ *********************************/
+// Gauss-Jordan Solver (Linear Equation System) (In Place Solver)
+template <FPNumber T>
+inline void GaussJordanInPlace(Matrix<T>& SystemMatrix, Matrix<T>& RHSMatrix)
+{
+	const std::uint64_t NumEqs(SystemMatrix.Rows()); const std::uint64_t NumUnKnowns(RHSMatrix.Rows()); const std::uint64_t NumRhs(RHSMatrix.Cols());
+	if (NumEqs!=SystemMatrix.Cols()) {std::print("Not a standard problem! Number of Eqs ({}) is not equal to number of Unknowns ({})!\nTherefore quitting...\n",NumEqs,SystemMatrix.Cols()); return;}
+	if (NumEqs!=NumUnKnowns) {std::print("Not a standard problem! Number of Unknowns ({}) is not equal to number of Eqs ({})!\nTherefore quitting...\n",NumUnKnowns,NumEqs); return;}
+
+	// Counting pivots
+	std::vector<std::uint32_t> is_pivoted(NumEqs,0);
+	// Recording pivot locations
+	std::vector<std::uint64_t> row_pivot_indices(NumEqs);
+	std::vector<std::uint64_t> col_pivot_indices(NumEqs);
+	T pivot_reciprocal; T pivot_value{}; T max_value{}; uint64_t pivot_row{}; std::uint64_t pivot_col{}; T factor{};
+	for (std::uint64_t step{}; step<NumEqs; ++step)
+	{
+		// Finding the largest value to pivot (pivot point)
+		max_value = 0.0;
+		for (std::uint64_t r{}; r<NumEqs; ++r)
+		{
+			if (is_pivoted[r]!=1)
+			{
+				for (std::uint64_t c{}; c<NumEqs; ++c)
+				{
+					if (is_pivoted[c]==0)
+					{
+						std::float64_t abs_rc = std::abs(SystemMatrix[r][c]);
+						if (abs_rc>max_value)
+						{
+							max_value = abs_rc; pivot_row = r; pivot_col = c;
+						}
+					}
+				}
+			}
+		}
+		++is_pivoted[pivot_col];
+		// Normalize the diagonal
+		if (pivot_row!=pivot_col)
+		{
+			SystemMatrix.SwapRows(pivot_row,pivot_col); RHSMatrix.SwapRows(pivot_row,pivot_col);
+		}
+		row_pivot_indices[step] = pivot_row; col_pivot_indices[step] = pivot_col;
+		pivot_value = SystemMatrix[pivot_col,pivot_col]; pivot_reciprocal = static_cast<T>(1.0/pivot_value);
+		for (std::uint64_t c{}; c<NumEqs; ++c) SystemMatrix[pivot_col,c] *= pivot_reciprocal;
+		for (std::uint64_t c{}; c<NumRhs; ++c) RHSMatrix[pivot_col,c] *= pivot_reciprocal;
+		SystemMatrix[pivot_col][pivot_col] = static_cast<T>(1.0); 
+
+		// Reduce the rows to 0
+		for (std::uint64_t r{}; r<NumEqs; ++r)
+		{
+			if (r!=pivot_col)
+			{
+				factor = SystemMatrix[r,pivot_col];
+				for (std::uint64_t c{}; c<NumEqs; ++c) SystemMatrix[r,c] -= SystemMatrix[pivot_col,c]*factor;
+				SystemMatrix[r,pivot_col] = T{};
+				for (std::uint64_t c{}; c<NumRhs; ++c) RHSMatrix[r,c] -= RHSMatrix[pivot_col,c]*factor;
+			}
+		}
+	}
+}
+
+// Gauss-Jordan Solver (Linear Equation System)
+template <typename T>
+inline Matrix<T> GaussJordan(const Matrix<T>& SystemMatrix, const Matrix<T>& RHSMatrix)
+{Matrix<T> A(SystemMatrix); Matrix<T> b(RHSMatrix); GaussJordanInPlace(A,b); return b;}
+
+// Matrix Multiplication (Contraction)
+template <Number T, Number U>
+inline Matrix<T> MatMul(const Matrix<T>& m1, const Matrix<U>& m2, bool ForceMultiply=false)
+{
+	if (ForceMultiply)
+	{
+		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = std::min(m1.Cols(),m2.Rows());
+		Matrix<T> result(rows,cols);
+		for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for (std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+		return result;
+	}
+	else
+	{
+		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = m1.Cols(); std::uint64_t mid2 = m2.Rows();
+		Matrix<T> result(rows,cols);
+		if (mid!=mid2)
+		{
+			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",mid,mid2,rows,cols);
+			return result;
+		}
+		else
+		{
+			for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for(std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+			return result;
+		}
+	}
 }
