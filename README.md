@@ -13,6 +13,9 @@ This is an attempt to recreate numpy style vectors and matrices. I'll use a flat
 - [x] Added `ApplyFunc` to *apply* any function (lambda) to a *Matrix* in a vectorized way, element-wise.
 - [x] Added `abs`, `sqrt`, and `power` and some *trig* functions for element-wise application.
 - [x] Added *rvalue* overloads for some functionalities.
+- [x] Added `Trace` method.
+- [x] Added `MatMul` for *Matrix* multiplication (contraction operation).
+- [x] Added `GaussJordan` and `GaussJordanInPlace` solvers for $\mathbb{A} \{\mathbb{x}_i\} = \mathbb{b}_i$.
 - [ ] Need to add Matrix operations (Matrix multiplications, Trace, Determinant, Factorizations, etc.)
 
 **NOTE:** Use `-std=c++23` and link with *TBB* library (`-ltbb`) to compile.
