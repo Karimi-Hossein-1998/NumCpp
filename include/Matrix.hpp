@@ -1035,7 +1035,9 @@ inline void GaussJordanInPlace(Matrix<T>& SystemMatrix, Matrix<T>& RHSMatrix)
 			SystemMatrix.SwapRows(pivot_row,pivot_col); RHSMatrix.SwapRows(pivot_row,pivot_col);
 		}
 		row_pivot_indices[step] = pivot_row; col_pivot_indices[step] = pivot_col;
-		pivot_value = SystemMatrix[pivot_col,pivot_col]; pivot_reciprocal = static_cast<T>(1.0/pivot_value);
+		pivot_value = SystemMatrix[pivot_col,pivot_col]; 
+		if (std::abs(pivot_value)<=std::numeric_limits<T>::epsilon()) {std::println("Impossible to pivot... Quiting gracefully!"); return;}
+		pivot_reciprocal = static_cast<T>(1.0/pivot_value);
 		for (std::uint64_t c{}; c<NumEqs; ++c) SystemMatrix[pivot_col,c] *= pivot_reciprocal;
 		for (std::uint64_t c{}; c<NumRhs; ++c) RHSMatrix[pivot_col,c] *= pivot_reciprocal;
 		SystemMatrix[pivot_col][pivot_col] = static_cast<T>(1.0); 
