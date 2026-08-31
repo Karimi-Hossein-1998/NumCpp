@@ -543,7 +543,23 @@ class Matrix
         // print
         inline void printm(std::uint16_t width=10, std::uint16_t accuracy=8);
 		inline const T Trace() const noexcept;
+		// Factory Functions.
+		inline static Matrix<T> I(std::uint64_t n) {Matrix<T> result(n,n); for (std::uint64_t i{}; i<n; ++i) result[i,i]=1; return result;}
+		inline static Matrix<T> ReverseI(std::uint64_t n) {Matrix<T> result(n,n,1); for (std::uint64_t i{}; i<n; ++i) result[i,i]=0; return result;}
+		inline static Matrix<T> Zeros(std::uint64_t n, std::uint64_t m) {return Matrix<T>(n,m,0);}
+		inline static Matrix<T> Ones(std::uint64_t n, std::uint64_t m) {return Matrix<T>(n,m,1);}
 
+		inline Matrix<T> Inverse()
+		{
+			auto [L,U] = LUDecompose(*this);
+			auto InverseThis(Matrix<T>::I(nRows));
+			if (nRows!=nCols) {std::println("Cannot inverse via L-U decomposition method! Returning Identity"); return InverseThis;}
+			else
+			{
+				LUSolveInPlace(L,U,InverseThis);
+				return InverseThis;
+			}
+		}
 		/***********************************************
          *                 _____________               *
          *         \\\   |             |         \\\   *
@@ -993,6 +1009,54 @@ inline const T Matrix<T>::Trace() const noexcept
  *                 \\\|||///     *
  *                               *
  *********************************/
+// Matrix Multiplication (Contraction)
+template <Number T, Number U>
+inline Matrix<T> MatMul(const Matrix<T>& m1, const Matrix<U>& m2, bool ForceMultiply=false)
+{
+	if (ForceMultiply)
+	{
+		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = std::min(m1.Cols(),m2.Rows());
+		Matrix<T> result(rows,cols);
+		for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for (std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+		return result;
+	}
+	else
+	{
+		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = m1.Cols(); std::uint64_t mid2 = m2.Rows();
+		Matrix<T> result(rows,cols);
+		if (mid!=mid2)
+		{
+			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",mid,mid2,rows,cols);
+			return result;
+		}
+		else
+		{
+			for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for(std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+			return result;
+		}
+	}
+}
+
+/***************************************************
+ *            _________              ___________  *
+ *           / _______ \             |___   ___|  *
+ *          / /       \ \                | |      *
+ *         / /         \ \               | |      *
+ *        / /           \ \              | |      *
+ *       | |             | |             | |      *
+ *       | |             |_|             | |      *
+ *       | |                             | |      *
+ *       | |       _________    _        | |      *
+ *       | |       |_____  |   | |       | |      *
+ *        \ \           / /    | |       | |      *
+ *         \ \         / /      \ \     / /       *
+ *          \ \_______/ /        \ \___/ /        *
+ *           \_________/          \_____/         *
+ *                                                *
+ ***************************************************/
+ 
+
+
 // Gauss-Jordan Solver (Linear Equation System) (In Place Solver)
 template <FPNumber T>
 inline void GaussJordanInPlace(Matrix<T>& SystemMatrix, Matrix<T>& RHSMatrix)
@@ -1058,33 +1122,87 @@ inline void GaussJordanInPlace(Matrix<T>& SystemMatrix, Matrix<T>& RHSMatrix)
 
 // Gauss-Jordan Solver (Linear Equation System)
 template <typename T>
-inline Matrix<T> GaussJordan(const Matrix<T>& SystemMatrix, const Matrix<T>& RHSMatrix)
-{Matrix<T> A(SystemMatrix); Matrix<T> b(RHSMatrix); GaussJordanInPlace(A,b); return b;}
+inline Matrix<T> GaussJordan(const Matrix<T>& SystemMatrix, const Matrix<T>& RHSMatrix) {Matrix<T> A(SystemMatrix); Matrix<T> b(RHSMatrix); GaussJordanInPlace(A,b); return b;}
 
-// Matrix Multiplication (Contraction)
-template <Number T, Number U>
-inline Matrix<T> MatMul(const Matrix<T>& m1, const Matrix<U>& m2, bool ForceMultiply=false)
+
+/*************************
+ *  _       ___      ___ *
+ * | |      | |      | | *
+ * | |      | |      | | *
+ * | |      | |      | | *
+ * | |      | |      | | *
+ * | |      | |      | | *
+ * | |       \ \    / /  *
+ * | |____    \ \__/ /   *
+ * |_____|     \____/    *
+ *                       *
+ *************************/
+
+// L-U Decomposer
+template <FPNumber T>
+inline std::pair<Matrix<T>,Matrix<T>> LUDecompose(const Matrix<T>& SystemMatrix)
 {
-	if (ForceMultiply)
+	std::uint64_t rows = SystemMatrix.Rows(); std::uint64_t cols = SystemMatrix.Cols();
+	Matrix<T> L(rows,cols); Matrix<T> U(rows,cols);
+	if (rows!=cols) {std::println("Matrix is not square... Gracefully quitting!"); return {L,U};}
+	for (std::uint64_t i{}; i<rows; ++i) L[i,i] = 1.0;
+	U[0,0] = SystemMatrix[0,0];
+	for (std::uint64_t i{1}; i<rows; ++i) {U[0,i]=SystemMatrix[0,i]; L[i,0]=SystemMatrix[i,0]/U[0,0];}
+	for (std::uint64_t r{1}; r<rows; ++r)
 	{
-		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = std::min(m1.Cols(),m2.Rows());
-		Matrix<T> result(rows,cols);
-		for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for (std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
-		return result;
-	}
-	else
-	{
-		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = m1.Cols(); std::uint64_t mid2 = m2.Rows();
-		Matrix<T> result(rows,cols);
-		if (mid!=mid2)
+		for (std::uint64_t c{r}; c<cols; ++c)
 		{
-			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",mid,mid2,rows,cols);
-			return result;
+			U[r,c] = SystemMatrix[r,c];
+			for (std::uint64_t m{}; m<r; ++m)
+			{
+				U[r,c] -= L[r,m]*U[m,c];
+			}
 		}
-		else
+		for (std::uint64_t c{r+1}; c<cols; ++c)
 		{
-			for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for(std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
-			return result;
+			L[c,r] = SystemMatrix[c,r];
+			for (std::uint64_t m{}; m<r; ++m)
+			{
+				L[c,r] -= L[c,m]*U[m,r];
+			}
+			L[c,r] /= U[r,r];
+		}
+	}
+	return {L,U};
+}
+
+// Solve by L-U Decomposed Matrices (forward + backward substitution) (in-place)
+template <FPNumber T>
+inline void LUSolveInPlace(const Matrix<T>& L, const Matrix<T>& U, Matrix<T>& RHSMatrix)
+{
+	std::uint64_t NumEqs = L.Rows(); std::uint64_t NumRhs = RHSMatrix.Cols(); std::uint64_t NumUnKnowns = RHSMatrix.Rows(); std::int64_t NumEqsMinus1 = NumEqs-1;
+	if (NumEqs != NumUnKnowns || NumEqs != L.Cols() || NumEqs != U.Rows() || NumEqs != U.Cols()) {std::println("Dimensions mismatched... Quitting!"); return;}
+	for (std::uint64_t r{1}; r<NumEqs; ++r)
+		for (std::uint64_t c{}; c<r; ++c)
+			for (std::uint64_t i{}; i<NumRhs; ++i)
+				RHSMatrix[r,i] -= L[r,c]*RHSMatrix[c,i];
+	std::vector<T> UrrInv; UrrInv.reserve(NumEqs); for (std::uint64_t i{}; i<NumEqs; ++i) UrrInv.push_back(1.0/U[i,i]);
+	for (std::uint64_t i{}; i<NumRhs; ++i)
+	{
+		RHSMatrix[NumEqsMinus1,i] *= UrrInv[NumEqsMinus1];
+	}
+	for (std::int64_t r{NumEqsMinus1-1}; r>-1; --r)
+	{
+		for (std::int64_t c{r+1}; c<NumEqs; ++c)
+		{
+			for (std::uint64_t i{}; i<NumRhs; ++i)
+			{
+				RHSMatrix[r,i] -= U[r,c]*RHSMatrix[c,i];
+			}
+		}
+		for (std::uint64_t i{}; i<NumRhs; ++i)
+		{
+			RHSMatrix[r,i] *= UrrInv[r];
 		}
 	}
 }
+
+// Solve by L-U Decomposed Matrices
+template <FPNumber T>
+inline Matrix<T> LUSolve(const Matrix<T>& L, const Matrix<T>& U, const Matrix<T>& RHSMatrix) {Matrix<T> b(RHSMatrix); LUSolveInPlace(L,U,b); return b;}
+

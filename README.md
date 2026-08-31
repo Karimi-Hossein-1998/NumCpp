@@ -16,7 +16,8 @@ This is an attempt to recreate numpy style vectors and matrices. I'll use a flat
 - [x] Added `Trace` method.
 - [x] Added `MatMul` for *Matrix* multiplication (contraction operation).
 - [x] Added `GaussJordan` and `GaussJordanInPlace` solvers for $\mathbb{A} \{\mathbb{x}_i\} = \mathbb{b}_i$.
-- [ ] Need to add Matrix operations (Matrix multiplications, Trace, Determinant, Factorizations, etc.)
+- [x] Added `LUDecompose` and `LUSolveInPlace`, and `LUSolve` (see **example** `Matrix-08.cpp`).
+- [x] Added *Factory Functions* `I`, `ReverseI`, `Zeros`, and `Ones` (also see **example** `Matrix-08.cpp`).
 
 **NOTE:** Use `-std=c++23` and link with *TBB* library (`-ltbb`) to compile.
 
