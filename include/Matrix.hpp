@@ -10,6 +10,7 @@
 #include <concepts>
 #include <execution>
 #include <stdfloat>
+#include <cstdint>
 #include <type_traits>
 #include <stdexcept>
 #include <span>
@@ -51,6 +52,76 @@ inline std::uint64_t wrap_index(std::int64_t i,std::uint64_t nIndex)
     }
     else {return 0;}
 
+}
+
+
+#if __has_include(<stdfloat>)
+#  include <stdfloat>
+#endif
+
+template <typename T>
+std::string get_type_name()
+{
+    // 1. Guard against non-numeric types
+    if constexpr (!Number<T>) return "unknown";
+    // 2. Handle Complex types recursively using T::value_type
+    else if constexpr (Complex<T>) return "complex<" + get_type_name<typename T::value_type>() + ">";
+    // 3. Handle non-complex (Real scalar) numbers
+    else
+    {
+        // Standard Floating-Point Types
+        if constexpr (std::same_as<T, float>)                       return "float";
+        else if constexpr (std::same_as<T, double>)                 return "double";
+        else if constexpr (std::same_as<T, long double>)            return "long double";
+
+        // C++23 Extended Floating-Point Types
+        #if HAS_STDFLOAT
+        else if constexpr (std::same_as<T, std::float16_t>)         return "std::float16_t";
+        else if constexpr (std::same_as<T, std::bfloat16_t>)        return "std::bfloat16_t";
+        else if constexpr (std::same_as<T, std::float32_t>)         return "std::float32_t";
+        else if constexpr (std::same_as<T, std::float64_t>)         return "std::float64_t";
+        else if constexpr (std::same_as<T, std::float128_t>)        return "std::float128_t";
+        #endif
+
+		#if defined(__GNUC__)
+        else if constexpr (std::same_as<T,_Float32>)                return "std::float32";
+        else if constexpr (std::same_as<T,_Float64>)                return "std::float64";
+        else if constexpr (std::same_as<T,_Float128>)               return "std::float128";
+        #endif
+
+        // Fixed-Width Signed Integers
+        else if constexpr (std::same_as<T, std::int8_t>)            return "std::int8_t";
+        else if constexpr (std::same_as<T, std::int16_t>)           return "std::int16_t";
+        else if constexpr (std::same_as<T, std::int32_t>)           return "std::int32_t";
+        else if constexpr (std::same_as<T, std::int64_t>)           return "std::int64_t";
+
+        // Fixed-Width Unsigned Integers
+        else if constexpr (std::same_as<T, std::uint8_t>)           return "std::uint8_t";
+        else if constexpr (std::same_as<T, std::uint16_t>)          return "std::uint16_t";
+        else if constexpr (std::same_as<T, std::uint32_t>)          return "std::uint32_t";
+        else if constexpr (std::same_as<T, std::uint64_t>)          return "std::uint64_t";
+
+        // Fundamental Integer Types
+        else if constexpr (std::same_as<T, char>)                   return "char";
+        else if constexpr (std::same_as<T, signed char>)            return "signed char";
+        else if constexpr (std::same_as<T, unsigned char>)          return "unsigned char";
+        else if constexpr (std::same_as<T, short>)                  return "short";
+        else if constexpr (std::same_as<T, unsigned short>)         return "unsigned short";
+        else if constexpr (std::same_as<T, int>)                    return "int";
+        else if constexpr (std::same_as<T, unsigned int>)           return "unsigned int";
+        else if constexpr (std::same_as<T, long>)                   return "long";
+        else if constexpr (std::same_as<T, unsigned long>)          return "unsigned long";
+        else if constexpr (std::same_as<T, long long>)              return "long long";
+        else if constexpr (std::same_as<T, unsigned long long>)     return "unsigned long long";
+
+        // Compiler Extension Integers
+        #if defined(__SIZEOF_INT128__)
+        else if constexpr (std::same_as<T, __int128_t>)               return "int128_t";
+        else if constexpr (std::same_as<T, unsigned __int128>)        return "unsigned int128";
+        #endif
+
+        else return "unknown";
+    }
 }
 
 template <typename T>
@@ -95,10 +166,12 @@ using Slice = Ranges<std::int64_t>;
 template <Number T=std::float64_t>
 class Matrix
 {
+    using value_type = T;
 	private:
         std::vector<T> data {};
         std::uint64_t  nRows{};
         std::uint64_t  nCols{};
+        std::string name_of_the_type = get_type_name<value_type>();
 
 	public:
         /*******************
@@ -115,7 +188,6 @@ class Matrix
         Matrix(Matrix&&) noexcept = default;
         explicit Matrix(std::uint64_t nRows_, std::uint64_t nCols_, T value = T{})
         : nRows(nRows_), nCols(nCols_), data(nRows_*nCols_,static_cast<T>(value)) {}
-        // Matrix(std::uint64_t nRows_, std::uint64_t nCols_) : nRows(nRows_), nCols(nCols_) {data.reserve(nRows*nCols);}
         // Spans
 		Matrix(std::span<const T> span_, bool h=true) : data(span_.begin(),span_.end())
         {
@@ -560,13 +632,20 @@ class Matrix
 				return InverseThis;
 			}
 		}
+		inline T Determinant()
+        {
+            auto [L,U] = LUDecompose(*this);
+            T result{};
+            if (nRows!=nCols) {std::println("Cannot calculate... Quitting!"); return result;}
+            else {for (std::uint64_t i{}; i<nRows; ++i) result += U[i,i]; return result;}
+        }
 		/***********************************************
-         *                 _____________               *
-         *         \\\   |             |         \\\   *
-         *          \\\  |             |          \\\  *
-         * ==========\\\ |             | ==========\\\ *
-         * ==========/// |             | ==========/// *
-         *          ///  |             |          ///  *
+         *               _______________               *
+         *         \\\   | ___________ |         \\\   *
+         *          \\\  | |   __    | |          \\\  *
+         * ==========\\\ | |  |_     | | ==========\\\ *
+         * ==========/// | |  |      | | ==========/// *
+         *          ///  | |_________| |          ///  *
          *         ///   |_____________|         ///   *
          *                                             *
          ***********************************************/
@@ -961,7 +1040,7 @@ inline Matrix<T> reshape(Matrix<T>&& m, std::int64_t r, std::int64_t c) {return 
 template <Number T>
 inline void Matrix<T>::printm(std::uint16_t width, std::uint16_t accuracy)
 {
-    std::print("Matrix, Shape: ({}, {})\n",nRows,nCols);
+    std::print("Matrix ({}), Shape: ({}, {})\n",name_of_the_type,nRows,nCols);
     if (nRows==0 || nCols==0) return;
     if (data.empty()) {std::print("{}","{}\n"); return;}
     std::print("{{ ");

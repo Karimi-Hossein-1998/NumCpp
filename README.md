@@ -18,6 +18,8 @@ This is an attempt to recreate numpy style vectors and matrices. I'll use a flat
 - [x] Added `GaussJordan` and `GaussJordanInPlace` solvers for $\mathbb{A} \{\mathbb{x}_i\} = \mathbb{b}_i$.
 - [x] Added `LUDecompose` and `LUSolveInPlace`, and `LUSolve` (see **example** `Matrix-08.cpp`).
 - [x] Added *Factory Functions* `I`, `ReverseI`, `Zeros`, and `Ones` (also see **example** `Matrix-08.cpp`).
+- [x] Added `name_of_the_type` for *printm* readability (Now prints `Matrix (name_of_the_type)`, e.g. `Matrix (std::float64_t)`).
+- [x] Added *Inverse* and *Determinant* that leverage **LU decomposition**. (Needs further work.)
 
 **NOTE:** Use `-std=c++23` and link with *TBB* library (`-ltbb`) to compile.
 
