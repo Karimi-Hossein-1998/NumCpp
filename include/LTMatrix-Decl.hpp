@@ -139,3 +139,48 @@ inline void LTMatrix<T>::printm(std::uint16_t width, std::uint16_t accuracy) con
 		}
 	}
 }
+
+template <Number T>
+inline LTMatrix<T> MatMul(const LTMatrix<T>& l1, const LTMatrix<T>& l2, bool ForceMultiply=false)
+{
+	std::uint64_t ndim = l1.Rows(); std::uint64_t ndim2 = l2.Rows();
+	if (ForceMultiply)
+	{
+		LTMatrix<T> result(ndim);
+		if(ndim==ndim2)
+		{
+			for (std::uint64_t r{}; r<ndim; ++r)
+			{
+				for (std::uint64_t c{}; c<=r; ++c)
+				{
+					for (std::uint64_t k{c}; k<=r; ++k)
+					{
+						result[r,c] += l1[r,k]*l2[k,c];
+					}
+				}
+			}
+			return result;
+		}
+		else
+		{
+			std::println("Dimension mismatch... Quitting!");
+			return result;
+		}
+	}
+	else
+	{
+		ndim = std::min(ndim, ndim2);
+		LTMatrix<T> result(ndim);
+		for (std::uint64_t r{}; r<ndim; ++r)
+		{
+			for (std::uint64_t c{}; c<=r; ++c)
+			{
+				for (std::uint64_t k{c}; k<=r; ++k)
+				{
+					result[r,c] += l1[r,k]*l2[k,c];
+				}
+			}
+		}
+		return result;
+	}
+}

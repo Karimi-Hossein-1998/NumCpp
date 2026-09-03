@@ -26,6 +26,9 @@ int main()
 	std::println("Matrix.LTMatrix"); (MatMul(UN,L)).printm();
 	std::println("UTMatrix.Matrix"); (MatMul(U,LN)).printm();
 
+	std::println("LTMatrix.LTMatrix"); (MatMul(L,L)).printm();
+	std::println("UTMatrix.UTMatrix"); (MatMul(U,U)).printm();
+
 	// Matrix<std::float64_t> x(LUSolve(L,U,b));
 	// std::println("x (Ax=b)"); x.printm();
 	// Matrix<std::float64_t> xn(LUSolveNormal(LN,UN,b));

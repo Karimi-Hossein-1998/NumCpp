@@ -140,3 +140,47 @@ inline void UTMatrix<T>::printm(std::uint16_t width, std::uint16_t accuracy) con
 	}
 }
 
+template <Number T>
+inline UTMatrix<T> MatMul(const UTMatrix<T>& u1, const UTMatrix<T>& u2, bool ForceMultiply=false)
+{
+	std::uint64_t ndim = u1.Rows(); std::uint64_t ndim2 = u2.Rows();
+	if (!ForceMultiply)
+	{
+		UTMatrix<T> result(ndim);
+		if (ndim==ndim2)
+		{
+			for (std::uint64_t r{}; r<ndim; ++r)
+			{
+				for (std::uint64_t c{r}; c<ndim; ++c)
+				{
+					for (std::uint64_t k{r}; k<=c; ++k)
+					{
+						result[r,c] += u1[r,k]*u2[k,c];
+					}
+				}
+			}
+			return result;
+		}
+		else
+		{
+			std::println("Dimension mismatch.... Quitting!");
+			return result;
+		}
+	}
+	else
+	{
+		ndim = std::min(ndim,ndim2);
+		UTMatrix<T> result(ndim);
+		for (std::uint64_t r{}; r<ndim; ++r)
+		{
+			for (std::uint64_t c{r}; c<ndim; ++c)
+			{
+				for (std::uint64_t k{r}; k<=c; ++k)
+				{
+					result[r,c] += u1[r,k]*u2[k,c];
+				}
+			}
+		}
+		return result;
+	}
+}

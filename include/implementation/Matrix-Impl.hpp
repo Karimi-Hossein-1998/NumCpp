@@ -395,32 +395,11 @@ inline T Matrix<T>::Determinant() const
 template <Number T>
 inline Matrix<T> MatMul(const LTMatrix<T>& L, const UTMatrix<T>& U, bool ForceMultiply=false)
 {
-	std::uint64_t mid = 0;
-	if (ForceMultiply)
+	std::uint64_t mid{}; std::uint64_t nside = L.Rows(); std::uint64_t nside2 = U.Rows();
+	if (!ForceMultiply)
 	{
-		std::uint64_t nside = std::min(L.Rows(),U.Rows()); Matrix<T> result(nside,nside);
-		for (std::uint64_t r{}; r<nside; ++r)
-		{
-			for (std::uint64_t c{}; c<nside; ++c)
-			{
-				mid = std::min(r,c)+1;
-				for (std::uint64_t m{}; m<mid; ++m)
-				{
-					result[r,c]+=L[r,m]*U[m,c];
-				}
-			}
-		}
-		return result;
-	}
-	else
-	{
-		std::uint64_t nside = L.Rows(); std::uint64_t nside2 = U.Rows(); Matrix<T> result(nside,nside);
-		if (nside!=nside2)
-		{
-			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",nside,nside2,nside,nside);
-			return result;
-		}
-		else
+		Matrix<T> result(nside,nside);
+		if (nside==nside2)
 		{
 			for (std::uint64_t r{}; r<nside; ++r)
 			{
@@ -435,38 +414,38 @@ inline Matrix<T> MatMul(const LTMatrix<T>& L, const UTMatrix<T>& U, bool ForceMu
 			}
 			return result;
 		}
+		else
+		{
+			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",nside,nside2,nside,nside);
+			return result;
+		}
+	}
+	else
+	{
+		nside = std::min(nside,nside2); Matrix<T> result(nside,nside);
+		for (std::uint64_t r{}; r<nside; ++r)
+		{
+			for (std::uint64_t c{}; c<nside; ++c)
+			{
+				mid = std::min(r,c)+1;
+				for (std::uint64_t m{}; m<mid; ++m)
+				{
+					result[r,c]+=L[r,m]*U[m,c];
+				}
+			}
+		}
+		return result;
 	}
 }
 
 template <Number T>
 inline Matrix<T> MatMul(const UTMatrix<T>& U, const LTMatrix<T>& L, bool ForceMultiply=false)
 {
-	std::uint64_t mid{};
-	if (ForceMultiply)
+	std::uint64_t mid{}; std::uint64_t nside = L.Rows(); std::uint64_t nside2 = U.Rows();
+	if (!ForceMultiply)
 	{
-		std::uint64_t nside = std::min(U.Rows(),L.Rows()); Matrix<T> result(nside,nside);
-		for (std::uint64_t r{}; r<nside; ++r)
-		{
-			for (std::uint64_t c{}; c<nside; ++c)
-			{
-				mid = std::max(r,c);
-				for (std::uint64_t m{mid}; m<nside; ++m)
-				{
-					result[r,c]+=U[r,m]*L[m,c];
-				}
-			}
-		}
-		return result;
-	}
-	else
-	{
-		std::uint64_t nside = L.Rows(); std::uint64_t nside2 = U.Rows(); Matrix<T> result(nside,nside);
-		if (nside!=nside2)
-		{
-			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",nside,nside2,nside,nside);
-			return result;
-		}
-		else
+		Matrix<T> result(nside,nside);
+		if (nside==nside2)
 		{
 			for (std::uint64_t r{}; r<nside; ++r)
 			{
@@ -481,6 +460,27 @@ inline Matrix<T> MatMul(const UTMatrix<T>& U, const LTMatrix<T>& L, bool ForceMu
 			}
 			return result;
 		}
+		else
+		{
+			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",nside,nside2,nside,nside);
+			return result;
+		}
+	}
+	else
+	{
+		nside = std::min(nside,nside2); Matrix<T> result(nside,nside);
+		for (std::uint64_t r{}; r<nside; ++r)
+		{
+			for (std::uint64_t c{}; c<nside; ++c)
+			{
+				mid = std::max(r,c);
+				for (std::uint64_t m{mid}; m<nside; ++m)
+				{
+					result[r,c]+=U[r,m]*L[m,c];
+				}
+			}
+		}
+		return result;
 	}
 }
 
@@ -489,7 +489,29 @@ inline Matrix<T> MatMul(const Matrix<T>& m, const LTMatrix<T>& l, bool ForceMult
 {
 	std::uint64_t row = m.Rows(); std::uint64_t col = l.Cols(); std::uint64_t mid = m.Cols();
 	Matrix<T> result(row,col);
-	if (ForceMultiply)
+	if (!ForceMultiply)
+	{
+		if (mid==col)
+		{
+			for (std::uint64_t r{}; r<row; ++r)
+			{
+				for (std::uint64_t c{}; c<col; ++c)
+				{
+					for (std::uint64_t k{c}; k<mid; ++k)
+					{
+						result[r,c] += m[r,k]*l[k,c];
+					}
+				}
+			}
+			return result;
+		}
+		else
+		{
+			std::println("Dimension mismatch... Quitting!");
+			return result;
+		}
+	}
+	else
 	{
 		mid = std::min(mid,col);
 		for (std::uint64_t r{}; r<row; ++r)
@@ -504,28 +526,6 @@ inline Matrix<T> MatMul(const Matrix<T>& m, const LTMatrix<T>& l, bool ForceMult
 		}
 		return result;
 	}
-	else
-	{
-		if (mid!=col)
-		{
-			std::println("Dimension mismatch... Quitting!");
-			return result;
-		}
-		else
-		{
-			for (std::uint64_t r{}; r<row; ++r)
-			{
-				for (std::uint64_t c{}; c<col; ++c)
-				{
-					for (std::uint64_t k{c}; k<mid; ++k)
-					{
-						result[r,c] += m[r,k]*l[k,c];
-					}
-				}
-			}
-			return result;
-		}
-	}
 }
 
 template <Number T>
@@ -533,7 +533,29 @@ inline Matrix<T> MatMul(const LTMatrix<T>& l, const Matrix<T>& m, bool ForceMult
 {
 	std::uint64_t row = l.Rows(); std::uint64_t col = m.Cols(); std::uint64_t mid = m.Rows();
 	Matrix<T> result(row,col);
-	if (ForceMultiply)
+	if (!ForceMultiply)
+	{
+		if (mid==row)
+		{
+			for (std::uint64_t r{}; r<row; ++r)
+			{
+				for (std::uint64_t c{}; c<col; ++c)
+				{
+					for (std::uint64_t k{}; k<=r; ++k)
+					{
+						result[r,c] += l[r,k]*m[k,c];
+					}
+				}
+			}
+			return result;
+		}
+		else
+		{
+			std::println("Dimension mismatch... Quitting!");
+			return result;
+		}
+	}
+	else
 	{
 		mid = std::min(mid,row);
 		for (std::uint64_t r{}; r<row; ++r)
@@ -548,28 +570,6 @@ inline Matrix<T> MatMul(const LTMatrix<T>& l, const Matrix<T>& m, bool ForceMult
 		}
 		return result;
 	}
-	else
-	{
-		if (mid!=col)
-		{
-			std::println("Dimension mismatch... Quitting!");
-			return result;
-		}
-		else
-		{
-			for (std::uint64_t r{}; r<row; ++r)
-			{
-				for (std::uint64_t c{}; c<col; ++c)
-				{
-					for (std::uint64_t k{}; k<=r; ++k)
-					{
-						result[r,c] += l[r,k]*m[k,c];
-					}
-				}
-			}
-			return result;
-		}
-	}
 }
 
 template <Number T>
@@ -577,7 +577,29 @@ inline Matrix<T> MatMul(const Matrix<T>& m, const UTMatrix<T>& l, bool ForceMult
 {
 	std::uint64_t row = m.Rows(); std::uint64_t col = l.Cols(); std::uint64_t mid = m.Cols();
 	Matrix<T> result(row,col);
-	if (ForceMultiply)
+	if (!ForceMultiply)
+	{
+		if (mid==col)
+		{
+			for (std::uint64_t r{}; r<row; ++r)
+			{
+				for (std::uint64_t c{}; c<col; ++c)
+				{
+					for (std::uint64_t k{}; k<=c; ++k)
+					{
+						result[r,c] += m[r,k]*l[k,c];
+					}
+				}
+			}
+			return result;
+		}
+		else
+		{
+			std::println("Dimension mismatch... Quitting!");
+			return result;
+		}
+	}
+	else
 	{
 		mid = std::min(mid,col);
 		for (std::uint64_t r{}; r<row; ++r)
@@ -592,28 +614,6 @@ inline Matrix<T> MatMul(const Matrix<T>& m, const UTMatrix<T>& l, bool ForceMult
 		}
 		return result;
 	}
-	else
-	{
-		if (mid!=col)
-		{
-			std::println("Dimension mismatch... Quitting!");
-			return result;
-		}
-		else
-		{
-			for (std::uint64_t r{}; r<row; ++r)
-			{
-				for (std::uint64_t c{}; c<col; ++c)
-				{
-					for (std::uint64_t k{}; k<=c; ++k)
-					{
-						result[r,c] += m[r,k]*l[k,c];
-					}
-				}
-			}
-			return result;
-		}
-	}
 }
 
 template <Number T>
@@ -621,29 +621,9 @@ inline Matrix<T> MatMul(const UTMatrix<T>& l, const Matrix<T>& m, bool ForceMult
 {
 	std::uint64_t row = l.Rows(); std::uint64_t col = m.Cols(); std::uint64_t mid = m.Rows();
 	Matrix<T> result(row,col);
-	if (ForceMultiply)
+	if (!ForceMultiply)
 	{
-		mid = std::min(mid,row);
-		for (std::uint64_t r{}; r<row; ++r)
-		{
-			for (std::uint64_t c{}; c<col; ++c)
-			{
-				for (std::uint64_t k{r}; k<mid; ++k)
-				{
-					result[r,c] += l[r,k]*m[k,c];
-				}
-			}
-		}
-		return result;
-	}
-	else
-	{
-		if (mid!=col)
-		{
-			std::println("Dimension mismatch... Quitting!");
-			return result;
-		}
-		else
+		if (mid==row)
 		{
 			for (std::uint64_t r{}; r<row; ++r)
 			{
@@ -657,5 +637,25 @@ inline Matrix<T> MatMul(const UTMatrix<T>& l, const Matrix<T>& m, bool ForceMult
 			}
 			return result;
 		}
+		else
+		{
+			std::println("Dimension mismatch... Quitting!");
+			return result;
+		}
+	}
+	else
+	{
+		mid = std::min(mid,row);
+		for (std::uint64_t r{}; r<row; ++r)
+		{
+			for (std::uint64_t c{}; c<col; ++c)
+			{
+				for (std::uint64_t k{r}; k<mid; ++k)
+				{
+					result[r,c] += l[r,k]*m[k,c];
+				}
+			}
+		}
+		return result;
 	}
 }

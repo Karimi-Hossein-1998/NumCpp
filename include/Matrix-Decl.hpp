@@ -915,26 +915,26 @@ inline const T Matrix<T>::Trace() const noexcept
 template <Number T, Number U>
 inline Matrix<T> MatMul(const Matrix<T>& m1, const Matrix<U>& m2, bool ForceMultiply=false)
 {
-	if (ForceMultiply)
+	if (!ForceMultiply)
 	{
-		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = std::min(m1.Cols(),m2.Rows());
-		Matrix<T> result(rows,cols);
-		for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for (std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
-		return result;
-	}
+        std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = m1.Cols(); std::uint64_t mid2 = m2.Rows();
+        Matrix<T> result(rows,cols);
+        if (mid==mid2)
+        {
+            for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for(std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+            return result;
+        }
+        else
+        {
+            std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",mid,mid2,rows,cols);
+            return result;
+        }
+    }
 	else
 	{
-		std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = m1.Cols(); std::uint64_t mid2 = m2.Rows();
-		Matrix<T> result(rows,cols);
-		if (mid!=mid2)
-		{
-			std::println("Dimension mismatch {} != {}...\nReturning a matrix of zeros of shape ({},{})",mid,mid2,rows,cols);
-			return result;
-		}
-		else
-		{
-			for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for(std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
-			return result;
-		}
-	}
+        std::uint64_t rows = m1.Rows(); std::uint64_t cols = m2.Cols(); std::uint64_t mid = std::min(m1.Cols(),m2.Rows());
+        Matrix<T> result(rows,cols);
+        for (std::uint64_t r{}; r<rows; ++r) for (std::uint64_t c{}; c<cols; ++c) for (std::uint64_t m{}; m<mid; ++m) result[r,c] += m1[r,m]*m2[m,c];
+        return result;
+    }
 }
