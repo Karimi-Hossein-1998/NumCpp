@@ -40,14 +40,14 @@ int main()
 	auto A_lu = MatMul(L,U);
 	std::println("A = LU"); A_lu.printm();
 
-	Matrix<std::float64_t> x(LUSolveNormal(L,U,b));
-	LUSolveInPlaceNormal(L,U,b);
+	Matrix<std::float64_t> x(LUSolve(L,U,b));
+	LUSolveInPlace(L,U,b);
 	std::println("b (After solving with LU decomposition)"); b.printm();
 	std::println("Ax"); MatMul(A,b).printm();
 	std::println("x (Ax=b)"); x.printm();	
 
 	auto AInv(Matrix<std::float64_t>::I(3));
-	LUSolveInPlaceNormal(L,U,AInv);
+	LUSolveInPlace(L,U,AInv);
 	std::println("AInv"); AInv.printm();
 	std::println("A.AInv"); MatMul(A,AInv).printm();
 	auto AInverse(A.Inverse());

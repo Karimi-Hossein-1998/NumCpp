@@ -19,7 +19,7 @@ int main()
 
 	Matrix<std::float64_t> x(LUSolve(L,U,b));
 	std::println("x (Ax=b)"); x.printm();
-	Matrix<std::float64_t> xn(LUSolveNormal(LN,UN,b));
+	Matrix<std::float64_t> xn(LUSolve(LN,UN,b));
 	std::println("x (Ax=b) (Using normal matrices, not specialized LT and UT matrices)"); xn.printm();
 	// LUSolveInPlace(L,U,b);
 	// std::println("b (After solving with LU decomposition)"); b.printm();
