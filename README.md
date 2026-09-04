@@ -22,6 +22,7 @@ This is an attempt to recreate numpy style vectors and matrices. I'll use a flat
 - [x] Added *Inverse* and *Determinant* that leverage **LU decomposition**. (Needs further work.)
 - [x] Added `LTMatrix` for *Lower Triangular* and `UTMatrix` for *Upper Triangular* Matrices.
 - [x] Added `MatMul` for `Matrix` by `L/U-TMatrix` multiplications and vice versa.
+- [x] Added `TDMatrix` and `TDSolveInPlace` and `TDSolve` functions for *Tri-Diagonal* matrices.
 - [ ] Thinking of adding special cases *Matrix* class. (i.e. `NDMtrix` for *n-Diagonal*, etc.)
 
 **NOTE:** Use `-std=c++23` and link with *TBB* library (`-ltbb`) to compile.
